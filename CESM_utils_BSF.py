@@ -42,7 +42,7 @@ def calc_MV(ncdat):
 # =======================================================================================
 # - BSF on model grid
 # =======================================================================================
-def calc_BSF_on_modgrd(MV, dump_MVzint=False):
+def calc_BSF_mgrd(MV, dump_MVzint=False):
     '''
     Comments:
      > Think about taking np.nansum() #!

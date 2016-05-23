@@ -17,6 +17,7 @@
 #                                         added add_cyclic()
 #################################
 
+import numpy as np
 import xarray as xr
 import CESM_utils_mask as utils_mask
 import CESM_utils_plt as utils_plt
@@ -30,3 +31,6 @@ def add_cyclic(varin,dim='nlon'):
     elif dim == 'nlat':
 	return(xr.concat([varin, varin.isel(nlat=0)], dim='nlat'))
 
+def project_on_auxgrd(varin, angle):
+    ''' angle is measured from positive x-coord on auxgrd to positive x-coord on mgrd. '''
+    return(varin*np.cos(angle*np.pi/180))

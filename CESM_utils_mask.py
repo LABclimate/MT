@@ -24,6 +24,9 @@
 #                                         created gen_mask_grd_overlay_lat()
 #                                         created gen_iter_maskcombo()
 #                                         created get_maxiter_depth()
+# 20-Mai-2016 - buerki@climate.unibe.ch : in gen_maxiter_depth() changed '<=' to '<' 
+#                                         reason: <= diggs into ground for both z_w_top and z_t.
+# 					  added implemented new utils_spec.savevar functions
 #################################
 
 import numpy as np
@@ -32,7 +35,7 @@ import pickle
 import CESM_utils_mask as utils_mask
 import CESM_utils_plt as utils_plt
 import CESM_utils_conv as utils_conv
-import UTILS_specials as utils_spec 	# for Progress Bars
+import UTILS_specials as utils_spec
 
 # =======================================================================================
 # mask any xarray with respect to values in the regional mask of the nc-data
@@ -53,7 +56,7 @@ def mask_ATLANTIC(varin, mask, outputformat='xr'):
 
 
 # =======================================================================================
-# generate masks that we use in MOC-functions
+# generate masks and mask-like iterators that we use in MOC-functions
 # =======================================================================================
 
 # write some variables to numpy-arrays in order to speed up subsequent loops
@@ -84,7 +87,7 @@ def gen_mask_grd_overlay_lat(lat_auxgrd, MW, savevar=True):
     utils_spec.ProgBar('done')
 
     if savevar == True:
-      with open('variables/mask_auxgrd', 'w') as f: pickle.dump(mask_auxgrd, f) 	# save variable
+      utils_spec.savevar(mask_auxgrd, 'variables/mask_auxgrd') 				# save variable
 
     return(mask_auxgrd)
 
@@ -107,7 +110,7 @@ def gen_iter_maskcombo(lat_auxgrd, MW, mask_auxgrd, mask_modgrd, savevar=True):
     utils_spec.ProgBar('done')
 
     if savevar == True:
-      with open('variables/iter_maskcombo', 'w') as f: pickle.dump(iter_maskcombo, f) 	# save variable
+      utils_spec.savevar(iter_maskcombo, 'variables/iter_maskcombo') 				# save variable
 
     return(iter_maskcombo)
 
@@ -143,10 +146,10 @@ def gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, MW, seafloor_HT, savevar=True):
     for j in iter_lat_MW:
       utils_spec.ProgBar('step', barlen=32, step=j, nsteps=len(iter_lat_MW))
       for i in iter_lon_MW:
-        maxiter_depth[j,i] = np.where(z_w_auxgrd <= seafloor_HT[j,i])[-1][-1] 	# index of maximal depth at j,i
+        maxiter_depth[j,i] = np.where(z_w_auxgrd < seafloor_HT[j,i])[-1][-1] 	# index of maximal depth at j,i
     utils_spec.ProgBar('done')
 
     if savevar == True:
-      with open('variables/maxiter_depth', 'w') as f: pickle.dump(maxiter_depth, f) 	# save variable
+      utils_spec.savevar(maxiter_depth, 'variables/maxiter_depth') 				# save variable
 
     return(maxiter_depth)

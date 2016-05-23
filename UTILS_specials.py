@@ -17,6 +17,7 @@
 
 import numpy as np
 import sys
+import pickle
 
 # --- Progress Bars ---
 def ProgBar(stage, barlen=10, step=0, nsteps=10):
@@ -40,3 +41,18 @@ for i in np.arange(384):
     utils_spec.ProgBar('step', barlen=32, step = i, nsteps = 384)
 utils_spec.ProgBar('done')
 '''
+
+# --- load variable using pickle
+def loadvar(filename):
+    print('loading "' + filename + '" from file... ')
+    with open(filename, 'rb') as f: 
+      var = pickle.load(f)
+    print(' > Done!')
+    return(var)
+
+# --- save variable using pickle
+def savevar(var, filename):
+    print('saving "' + filename + '" to file... ')	
+    with open(filename, 'wb') as f:
+      pickle.dump(var, f)
+    print(' > Done!')      

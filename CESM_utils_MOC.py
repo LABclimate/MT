@@ -23,7 +23,7 @@ import numpy as np
 import xarray as xr
 import pickle
 import CESM_utils_mask as utils_mask
-import UTILS_specials as utils_spec 	# for Progress Bars
+import UTILS_specials as utils_spec
 
 # =======================================================================================
 # - Compute vertical volume transport MW (in Sv)
@@ -43,25 +43,40 @@ def calc_MW(ncdat):
 # =======================================================================================
 # - MOC on model grid
 # =======================================================================================
-def calc_MOC_on_modgrd(MW, dump_MWxint=False):
+def calc_MOC_mgrd(M, velocity_component, do_normalize=True, dump_Mxint=False):
     '''
+    Input:
+     > M 			: either MW or MV (either as xarray or nparray)
+     > velocity_component 	: either 'W' or  'V' (string)
+     > do_normalize 		: boolean
+     > dump_Mxint 		: boolean
     Comments:
      > As latitude varies along longitude of model grid I simply set the TLAT as 
-       the *mean* of MW-latitudes along longitudes.
+       the *mean* of M-latitudes along longitudes.
        Note, that this is very inappropriate at high latitudes!
      > Think about taking np.nansum() #!
     '''
-    MWxint = xr.DataArray(MW.sum(dim='nlon'),  	# zonal integration
-		    name='MW zonally integrated',
+    # zonal integration along model grid    
+    Mxint = xr.DataArray(M.sum(dim='nlon'),  	# zonal integration
 		    attrs={'units':u'Sv'}, 
-		    coords={'TLAT':MW.TLAT.mean(dim='nlon')}) 	#! mean is inappropriate at high latitudes!
-
-    MOC = xr.DataArray(MWxint, name='MOC on model grid', attrs={'units':u'Sv'})
-    for j in np.arange(1,len(MWxint.nlat)): 	# meridional integration
+		    coords={'TLAT':M.TLAT.mean(dim='nlon')}) 	#! mean is inappropriate at high latitudes!
+    # meridional integration along model grid
+    MOC = xr.DataArray(Mxint)
+    for j in np.arange(1,len(Mxint.nlat)): 	# meridional integration
       MOC[dict(nlat=j)] = MOC.isel(nlat=j) + MOC.isel(nlat=j-1)
-    
-    if dump_MWxint == True:
-      return(MOC, MWxint)
+    # normalization relative to North (shift values such that zero at northern boundary)
+    if do_normalize == True:
+      MOC = MOC - MOC[:,-1]
+    # naming xarrays
+    if velocity_component == 'W':
+      Mxint.name = 'MW zonally integrated'
+      MOC.name = 'MOC on model grid calculated from WVEL'
+    elif velocity_component == 'V':
+      Mxint.name = 'MV zonally integrated'
+      MOC.name = 'MOC on model grid calculated from VVEL'
+
+    if dump_Mxint == True:
+      return(MOC, Mxint)
     else:
       return(MOC)
 
@@ -72,15 +87,16 @@ def calc_MOC_on_modgrd(MW, dump_MWxint=False):
 # ---------------------------------------------------------------------------------------
 # - define default for auxillary grid
 # ---------------------------------------------------------------------------------------
-def get_default_auxgrd(MW):
-    lat_auxgrd = np.linspace(-90, 90, 180)  	# latitudes
-    z_w_auxgrd = MW.z_w_top.values 		# depth levels
-    return(lat_auxgrd, z_w_auxgrd)
+def get_default_auxgrd(ncdat):
+    lat = np.linspace(-90, 90, 180)  	# latitudes
+    z_t = ncdat.z_t.values 		# depth levels
+    z_w_top = ncdat.z_w_top.values 	# depth levels
+    return(lat, z_t, z_w_top)
 
 # ---------------------------------------------------------------------------------------
-# - MOC on auxillary grid
+# - MOC on auxillary grid based on WVEL
 # ---------------------------------------------------------------------------------------
-def calc_MOC_on_auxgrd(lat_auxgrd, z_w_auxgrd, MW, ncdat, dump_MWxint=False, savevar=True):
+def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, MW, ncdat, do_normalize=True, dump_MWxint=False, savevar=True):
     '''
     Input:
     ======
@@ -102,6 +118,8 @@ def calc_MOC_on_auxgrd(lat_auxgrd, z_w_auxgrd, MW, ncdat, dump_MWxint=False, sav
     >       k-loop: over depths from surface down to depth of seafloor relative to model grid (j,i position)
     >         zonal integration by summing up vertical volume transports (MW) of model grid.
     > calculate MOC by meridional integration along aux grid
+    > normalization relative to northern boundary: at every point substract northernmost value at same depth, 
+    such that streamfunction closes at NP.
 
     Comments:
     =========
@@ -117,36 +135,29 @@ def calc_MOC_on_auxgrd(lat_auxgrd, z_w_auxgrd, MW, ncdat, dump_MWxint=False, sav
     lat_MW = np.array(MW.TLAT)
     iter_lat_auxgrd = np.arange(len(lat_auxgrd))
     iter_lat_MW = np.arange(len(MW.nlat))
-    iter_lon_MW = np.array(MW.nlon) 			 			# in normal order!!	
 
-    # get masks and iteration-indices to speed up subsequent loops
-    try:
-      with open('variables/mask_auxgrd') as f: mask_auxgrd = pickle.load(f)
-      print('success in loading ''mask_auxgrd'' from file')
-    except:
-      mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_auxgrd, MW)
-    try:
-      with open('variables/iter_maskcombo') as f: iter_maskcombo = pickle.load(f)
-      print('success in loading ''iter_maskcombo'' from file')      
-    except:
-      iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, MW, mask_auxgrd, ncdat.REGION_MASK)
-    try:
-      with open('variables/maxiter_depth') as f: maxiter_depth = pickle.load(f)
-      print('success in loading ''maxiter_depth'' from file')      
-    except:
-      maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, MW, ncdat.HT.values)
+    # get masks and iteration-indices to speed up subsequent loops (recalculate if loading from file fails)
+    try: 	mask_auxgrd = utils_spec.loadvar('variables/mask_auxgrd')
+    except: 	mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_auxgrd, MW)
+    try:	iter_maskcombo = utils_spec.loadvar('variables/iter_maskcombo')
+    except:     iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, MW, mask_auxgrd, ncdat.REGION_MASK)
+    try:	maxiter_depth = utils_spec.loadvar('variables/maxiter_depth') 
+    except:     maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_auxgrd, MW, ncdat.HT.values)
     
     # zonal integration along aux grid
     print('> zonal integration')
-    MWxint = np.zeros([len(lat_auxgrd), len(z_w_auxgrd)])  		# pre-allocation with zeros
+    MWxint = np.zeros([len(lat_auxgrd), len(z_auxgrd)])  	# pre-allocation with zeros (np-array like for speed)
     for n in iter_lat_auxgrd:
       utils_spec.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd))# initialize and update progress bar
       for j in iter_lat_MW:
-        if any(mask_auxgrd[n,j,:]):						# to speed up the code
+#        if any(mask_auxgrd[n,j,:]):						# to speed up the code
           for i in iter_maskcombo[n,j]: 					# limit zonal integration to Atlantic and grid-overlay
             for k in np.arange(int(maxiter_depth[j,i])): 			# stop at depth of seafloor
               MWxint[n,k] = np.nansum([MWxint[n,k],MW[k,j,i]]) 			# zonal integration
-              print(MWxint[n,k])
+    MWxint= xr.DataArray(MWxint, 						# write MWxint to xarray
+		name='MW zonally integrated along auxillary grid', 
+		attrs={'units':u'Sv'},
+		dims={'nlat':np.arange(len(lat_auxgrd)), 'z_w_top':np.arange(len(z_auxgrd))})
     utils_spec.ProgBar('done') 							# terminate progress bar
 
     # meridional integration along aux grid
@@ -154,22 +165,29 @@ def calc_MOC_on_auxgrd(lat_auxgrd, z_w_auxgrd, MW, ncdat, dump_MWxint=False, sav
     MOC = xr.DataArray(MWxint, 
 		name='MOC on auxillary grid', 
 		attrs={'units':u'Sv'},
-		dims={'nlat':np.arange(len(lat_auxgrd)), 'z_w_top':np.arange(len(z_w_auxgrd))})
+		dims={'nlat':np.arange(len(lat_auxgrd)), 'z_w_top':np.arange(len(z_auxgrd))})
     for n in iter_lat_auxgrd[1:]:
       utils_spec.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd))# initialize and update progress bar
-      for ii in 
-      MOC[dict(nlat=n)] = np.nansum([MOC[n,:], MOC[n-1,:]], axis=0) 	# meridional integration
+      MOC[dict(nlat=n)] = np.nansum([MOC[n,:], MOC[n-1,:]], axis=0) 		# meridional integration
     utils_spec.ProgBar('done') 							# terminate progress bar
     
     if savevar == True:
-      with open('variables/MOC', 'w') as f: pickle.dump(MOC, f) 	# save variable
+      utils_spec.savevar(MOC, 'variables/MOC_auxgrd')				# save variable #! change name
 
-     
+    # normalization relative to North (shift values such that zero at northern boundary)
+    if do_normalize == True:
+      MOC = MOC - MOC.isel(nlat=-1)
+    
     if dump_MWxint == True:
       return(MOC, MWxint)
     else:
       return(MOC)
 
+
+# ---------------------------------------------------------------------------------------
+# - MOC on auxillary grid based on VVEL
+# ---------------------------------------------------------------------------------------
+#def calc_MOC_auxgrd_VVEL(lat_auxgrd, z_auxgrd, MW, ncdat, do_normalize=True, dump_MWxint=False, savevar=True):
 
 
 #################################################################################################
@@ -186,4 +204,3 @@ def calc_MOC_on_auxgrd(lat_auxgrd, z_w_auxgrd, MW, ncdat, dump_MWxint=False, sav
 #      if lat_auxgrd[n] <= MW.TLAT.isel(nlon=i, nlat=j) < lat_auxgrd[n+1]:
 #        for k in np.arange(len(MW.z_w_top))
 #          MOC[dict(nlat_aux=n, z_w_top=k)] = MOC[n,k] + MW.isel(nlon=i, nlat=j, z_w_top=k)
-
