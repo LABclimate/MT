@@ -149,7 +149,7 @@ plt.title('MOC auxgrd W')
 utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_W')
 
 # MOC_auxgrd_V
-fig, ax = utils_plt.plot_slice(lat_auxgrd, z_t_auxgrd, MOC_auxgrd_V.T, cmapstep = 1, plttype='contourf')
+fig, ax = utils_plt.plot_slice(lat_auxgrd, z_t_auxgrd, MOC_auxgrd_V.T, cmapstep = .1, plttype='contourf')
 plt.plot(lat_auxgrd,HT_auxgrd_max)  				# plot seafloor
 plt.plot([-50]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
