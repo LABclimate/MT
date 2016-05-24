@@ -100,7 +100,7 @@ def gen_iter_maskcombo(lat_auxgrd, MW, mask_auxgrd, mask_modgrd, savevar=True):
 	both, mask_auxgrd and the region mask on the model grid are True. 
     '''
     print('> generating iter_maskcombo')
-    lat_MW, iter_lat_auxgrd, iter_lat_MW, iter_lon_MW = vars2speedup(lat_auxgrd, MW) 	# np-arrays for speed    
+    lat_MW, iter_lat_auxgrd, iter_lat_MW, iter_lon_MW = utils_mask.vars2speedup(lat_auxgrd, MW) 	# np-arrays for speed    
     iter_maskcombo = np.zeros([len(lat_auxgrd), len(MW.nlat)], dtype=object)  		# pre-allocation as integer
 
     for n in iter_lat_auxgrd:
@@ -140,13 +140,14 @@ def gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, MW, seafloor_HT, savevar=True):
       > Make function lat_auxgrd independent
     '''
     print('> generating maxiter_depth')
-    lat_MW, iter_lat_auxgrd, iter_lat_MW, iter_lon_MW = vars2speedup(lat_auxgrd, MW) 	# np-arrays for speed    
-    maxiter_depth = np.zeros([len(MW.nlat), len(MW.nlon)], dtype=int)
+    lat_MW, iter_lat_auxgrd, iter_lat_MW, iter_lon_MW = utils_mask.vars2speedup(lat_auxgrd, MW) 	# np-arrays for speed    
+    maxiter_depth = np.zeros([len(MW.nlat), len(MW.nlon)], dtype=object)
 
     for j in iter_lat_MW:
       utils_spec.ProgBar('step', barlen=32, step=j, nsteps=len(iter_lat_MW))
       for i in iter_lon_MW:
-        maxiter_depth[j,i] = np.where(z_w_auxgrd < seafloor_HT[j,i])[-1][-1] 	# index of maximal depth at j,i
+        try:    maxiter_depth[j,i] = np.where(z_w_auxgrd < seafloor_HT[j,i])[-1][-1] 	# index of maximal depth at j,i
+        except: maxiter_depth[j,i] = np.array([])
     utils_spec.ProgBar('done')
 
     if savevar == True:

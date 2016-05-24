@@ -24,7 +24,7 @@ import CESM_utils_BSF as utils_BSF
 # #######################################################################################
 # ---------------------------------------------------------------------------------------
 # load netcdf file
-fpath='/alphadata02/born/lm850-1850.1deg/no_backup/annual_data/'
+fpath='./'
 fname='b40.lm850-1850.1deg.001.pop.h.1279.ann.4.cdf'
 ncdat = xr.open_dataset(fpath+fname, decode_times=False)
 
@@ -52,22 +52,23 @@ MW = utils_MOC.calc_MW(ncdat) 						  # valid on both grids
 # ---------------------------------------------------------------------------------------
 # - BSF and MOC on model grid (in Sv)
 BSF_mgrd, MVzint = utils_BSF.calc_BSF_mgrd(MV_mgrd, dump_MVzint=True)
-MOC_mgrd_W, MWxint = utils_MOC.calc_MOC_mgrd(MW, 'W', do_normalize = True, dump_Mxint=True)
-MOC_mgrd_V, MVxint = utils_MOC.calc_MOC_mgrd(MV_projauxgrd, 'V', do_normalize = True, dump_Mxint=True)
+MOC_mgrd_W, MWxint = utils_MOC.calc_MOC_mgrd('W', MW, do_normalize = True, dump_Mxint=True)
+MOC_mgrd_V, MVxint = utils_MOC.calc_MOC_mgrd('V', MV_projauxgrd, do_normalize = True, dump_Mxint=True)
 # ---------------------------------------------------------------------------------------
 # - Auxillary grid
 lat_auxgrd, z_t_auxgrd, z_w_top_auxgrd = utils_MOC.get_default_auxgrd(ncdat)  	# define auxillary grid
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid - WVEL (in Sv)
-MOC_auxgrd_W = utils_spec.loadvar('variables/MOC_auxgrd_W') 		# load from file
-MOC_auxgrd_W = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, MW, ncdat, dump_MWxint=False, savevar=True)
-utils_spec.savevar(MOC_auxgrd_W, 'variables/MOC_auxgrd_W') 		# save to file
+try:    MOC_auxgrd_W = utils_spec.loadvar('variables/MOC_auxgrd_W') 		# load from file
+except: try:    MWxint = utils_spec.loadvar('variables/MOC_auxgrd_W') 	        # load from file
+        except: MWxint = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW, ncdat, savevar=True)
+        MOC_auxgrd_W = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint, ncdat, savevar=True)
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid - VVEL (in Sv)
-MOC_auxgrd_V = utils_spec.loadvar('variables/MOC_auxgrd_V') 		# load from file
-MOC_auxgrd_V = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_t_auxgrd, MV_projauxgrd, ncdat, dump_MWxint=False, savevar=True)
-utils_spec.savevar(MOC_auxgrd_V, 'variables/MOC_auxgrd_V') 		# save to file
-
+try:    MOC_auxgrd_V = utils_spec.loadvar('variables/MOC_auxgrd_V') 		# load from file
+except: try:    MVxint = utils_spec.loadvar('variables/MOC_auxgrd_V') 	        # load from file
+        except: MVxint = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MV_projauxgrd, ncdat, savevar=True)
+        MOC_auxgrd_V = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MVxint, ncdat, savevar=True)
 
 # =======================================================================================
 #  Seafloor masked for ATLANTIC - these are actually z_t_top values!!
@@ -153,6 +154,7 @@ plt.plot(lat_auxgrd,HT_auxgrd_max)  				# plot seafloor
 plt.plot([-50]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
 plt.title('MOC auxgrd V')
+utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_V')
 
 # ---------------------------------------------------------------------------------------
 

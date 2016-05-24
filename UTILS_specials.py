@@ -44,15 +44,15 @@ utils_spec.ProgBar('done')
 
 # --- load variable using pickle
 def loadvar(filename):
-    print('loading "' + filename + '" from file... ')
+    print('> loading "' + filename + '" from file... ')
     with open(filename, 'rb') as f: 
       var = pickle.load(f)
-    print(' > Done!')
+    print(' --> Done!')
     return(var)
 
 # --- save variable using pickle
 def savevar(var, filename):
-    print('saving "' + filename + '" to file... ')	
+    print('> saving "' + filename + '" to file... ')	
     with open(filename, 'wb') as f:
       pickle.dump(var, f)
-    print(' > Done!')      
+    print(' --> Done!')      

@@ -43,11 +43,11 @@ def calc_MW(ncdat):
 # =======================================================================================
 # - MOC on model grid
 # =======================================================================================
-def calc_MOC_mgrd(M, velocity_component, do_normalize=True, dump_Mxint=False):
+def calc_MOC_mgrd(velocity_component, M, do_normalize=True, dump_Mxint=False):
     '''
     Input:
-     > M 			: either MW or MV (either as xarray or nparray)
      > velocity_component 	: either 'W' or  'V' (string)
+     > M 			: either MW or MV (either as xarray or nparray)
      > do_normalize 		: boolean
      > dump_Mxint 		: boolean
     Comments:
@@ -83,32 +83,14 @@ def calc_MOC_mgrd(M, velocity_component, do_normalize=True, dump_Mxint=False):
 # =======================================================================================
 # - MOC on auxillary grid
 # =======================================================================================
-
-# ---------------------------------------------------------------------------------------
-# - define default for auxillary grid
-# ---------------------------------------------------------------------------------------
-def get_default_auxgrd(ncdat):
-    lat = np.linspace(-90, 90, 180)  	# latitudes
-    z_t = ncdat.z_t.values 		# depth levels
-    z_w_top = ncdat.z_w_top.values 	# depth levels
-    return(lat, z_t, z_w_top)
-
-# ---------------------------------------------------------------------------------------
-# - MOC on auxillary grid based on WVEL
-# ---------------------------------------------------------------------------------------
-def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, MW, ncdat, do_normalize=True, dump_MWxint=False, savevar=True):
-    '''
-    Input:
-    ======
-    > MW : vertical volume transport (NOT rolled!!)
-
+'''
     Steps:
     ======
     > define auxillary grid
     > generate mask (mask_auxgrd) that is 'True' where latitudes of both grids lie in the same box
     > generate array (maxiter_depth) for seafloor detection. It contains the indices of maximal depth
     for each point on model grid (T points) in order to stop k-iteration at the seafloor.
-    > calculate MWxint by zonal integration along aux grid
+    > calculate Mxint by zonal integration along aux grid
     > n-loop: over latitude on aux grid
     >   j-loop: over latitudes on model grid
     >     check whether mask_auxgrd of current n, j is True anywhere (just for speeding up)
@@ -116,8 +98,8 @@ def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, MW, ncdat, do_normalize=True, dump_MWx
     the order of the iteration is rolled to begin at western boundary of Atlantic
     but actually, this 
     >       k-loop: over depths from surface down to depth of seafloor relative to model grid (j,i position)
-    >         zonal integration by summing up vertical volume transports (MW) of model grid.
-    > calculate MOC by meridional integration along aux grid
+    >         zonal integration by summing up vertical volume transports (M) of model grid.
+    > calculate MOC by meridional of Mxint integration along aux grid
     > normalization relative to northern boundary: at every point substract northernmost value at same depth, 
     such that streamfunction closes at NP.
 
@@ -130,77 +112,114 @@ def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, MW, ncdat, do_normalize=True, dump_MWx
     n: latitude on aux-grid, 
     j: latitude on model-grid, 
     i: longitude on model-grid and k: depth on both grids
+'''
+# ---------------------------------------------------------------------------------------
+# - define default for auxillary grid
+# ---------------------------------------------------------------------------------------
+def get_default_auxgrd(ncdat):
+    lat = np.linspace(-80, 90, 170)  	# latitudes
+    z_t = ncdat.z_t.values 		# depth levels
+    z_w_top = ncdat.z_w_top.values 	# depth levels
+    return(lat, z_t, z_w_top)
+
+# ---------------------------------------------------------------------------------------
+# - zonal integration of Volume Transport along auxillary grid
+# ---------------------------------------------------------------------------------------
+def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, M, ncdat, do_normalize=True, savevar=True):
+    '''
+    Input:
+     > lat_auxgrd               : vector with meridional auxillary grid
+     > z_auxgrd                 : vector with vertical auxillary grid
+     > velocity_component 	: either 'W' or  'V' (string)    
+     > M                        : volume transport (NOT rolled!!)
+     > ncdat                    : netCDFdata to load REGION_MASK
     '''
     # a few variables to speed up subsequent loops 
-    lat_MW = np.array(MW.TLAT)
     iter_lat_auxgrd = np.arange(len(lat_auxgrd))
-    iter_lat_MW = np.arange(len(MW.nlat))
+    iter_lat_M = np.arange(len(M.nlat))
 
     # get masks and iteration-indices to speed up subsequent loops (recalculate if loading from file fails)
     try: 	mask_auxgrd = utils_spec.loadvar('variables/mask_auxgrd')
-    except: 	mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_auxgrd, MW)
+    except: 	mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_auxgrd, M)
     try:	iter_maskcombo = utils_spec.loadvar('variables/iter_maskcombo')
-    except:     iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, MW, mask_auxgrd, ncdat.REGION_MASK)
+    except:     iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, M, mask_auxgrd, ncdat.REGION_MASK)
     try:	maxiter_depth = utils_spec.loadvar('variables/maxiter_depth') 
-    except:     maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_auxgrd, MW, ncdat.HT.values)
+    except:     maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_auxgrd, M, ncdat.HT.values)
     
     # zonal integration along aux grid
     print('> zonal integration')
-    MWxint = np.zeros([len(lat_auxgrd), len(z_auxgrd)])  	# pre-allocation with zeros (np-array like for speed)
+    Mxint = np.zeros([len(z_auxgrd), len(lat_auxgrd)])  	# pre-allocation with zeros (np-array like for speed)
     for n in iter_lat_auxgrd:
       utils_spec.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd))# initialize and update progress bar
-      for j in iter_lat_MW:
+      for j in iter_lat_M:
 #        if any(mask_auxgrd[n,j,:]):						# to speed up the code
           for i in iter_maskcombo[n,j]: 					# limit zonal integration to Atlantic and grid-overlay
             for k in np.arange(int(maxiter_depth[j,i])): 			# stop at depth of seafloor
-              MWxint[n,k] = np.nansum([MWxint[n,k],MW[k,j,i]]) 			# zonal integration
-    MWxint= xr.DataArray(MWxint, 						# write MWxint to xarray
-		name='MW zonally integrated along auxillary grid', 
-		attrs={'units':u'Sv'},
-		dims={'nlat':np.arange(len(lat_auxgrd)), 'z_w_top':np.arange(len(z_auxgrd))})
-    utils_spec.ProgBar('done') 							# terminate progress bar
-
-    # meridional integration along aux grid
-    print('> meridional integration')
-    MOC = xr.DataArray(MWxint, 
-		name='MOC on auxillary grid', 
-		attrs={'units':u'Sv'},
-		dims={'nlat':np.arange(len(lat_auxgrd)), 'z_w_top':np.arange(len(z_auxgrd))})
-    for n in iter_lat_auxgrd[1:]:
-      utils_spec.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd))# initialize and update progress bar
-      MOC[dict(nlat=n)] = np.nansum([MOC[n,:], MOC[n-1,:]], axis=0) 		# meridional integration
+              Mxint[k,n] = np.nansum([Mxint[k,n],M[k,j,i]]) 			# zonal integration
     utils_spec.ProgBar('done') 							# terminate progress bar
     
-    if savevar == True:
-      utils_spec.savevar(MOC, 'variables/MOC_auxgrd')				# save variable #! change name
+    # write Mxint to xarray
+    Mxint= xr.DataArray(Mxint,
+		attrs={'units':u'Sv'},
+		dims={'z_w_top':np.arange(len(z_auxgrd)), 'nlat':np.arange(len(lat_auxgrd))})
+    utils_spec.savevar(Mxint, 'variables/MVxint')
+    if velocity_component == 'W':
+      Mxint.name = 'MW zonally integrated'                                      # naming xarrays
+      if savevar == True: utils_spec.savevar(Mxint, 'variables/MWxint')         # save to file
+    elif velocity_component == 'V':
+      Mxint.name = 'MV zonally integrated'                                      # naming xarrays
+      if savevar == True: utils_spec.savevar(Mxint, 'variables/MVxint')         # save to file
 
+    return(Mxint)
+
+# ---------------------------------------------------------------------------------------
+# - MOC on auxillary grid
+# ---------------------------------------------------------------------------------------
+def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, Mxint, ncdat, do_normalize=True, savevar=True):
+    '''
+    Input:
+     > lat_auxgrd               : vector with meridional auxillary grid
+     > z_auxgrd                 : vector with vertical auxillary grid
+     > velocity_component 	: either 'W' or  'V' (string)    
+     > Mxint                    : zonally integrated volume transport (NOT rolled!!)
+     > ncdat                    : netCDFdata to load REGION_MASK
+    '''
+    # a few variables to speed up subsequent loops 
+    iter_lat_auxgrd = np.arange(len(lat_auxgrd))
+    iter_z_auxgrd = np.arange(len(z_auxgrd))
+
+    # preallocation of MOC as xarray
+    MOC = xr.DataArray(Mxint,           # start with Mxint, which subsequently will be summed up
+		attrs={'units':u'Sv'},
+		dims={'z_w_top':np.arange(len(z_auxgrd)), 'nlat':np.arange(len(lat_auxgrd)), })
+
+    if velocity_component == 'W':
+      # meridional integration along aux grid
+      print('> meridional integration')
+      for n in iter_lat_auxgrd[1:]:
+        utils_spec.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd))      # initialize and update progress bar
+        MOC[dict(nlat=n)] = np.nansum([MOC[:,n], MOC[:,n-1]], axis=0) 		        # meridional integration
+      utils_spec.ProgBar('done') 							# terminate progress bar
+
+      MOC.name = 'MOC on auxillary grid calculated from WVEL'                           # naming xarrays
+      fname = 'MOC_auxgrd_W'                                                            # name for saving
+        				
+    elif velocity_component == 'V':
+      # vertical integration along aux grid
+      print('> vertical integration')
+      for k in iter_z_auxgrd[1:]:
+        utils_spec.ProgBar('step', barlen=60, step=k, nsteps=len(iter_z_auxgrd))        # initialize and update progress bar
+        MOC[dict(z_w_top=k)] = np.nansum([MOC[k,:], MOC[k-1,:]], axis=0) 		# meridional integration
+      utils_spec.ProgBar('done') 							# terminate progress bar
+
+      MOC.name = 'MOC on auxillary grid calculated from VVEL'                           # naming xarrays
+      fname = 'MOC_auxgrd_V'                                                            # name for saving
+   
     # normalization relative to North (shift values such that zero at northern boundary)
     if do_normalize == True:
       MOC = MOC - MOC.isel(nlat=-1)
-    
-    if dump_MWxint == True:
-      return(MOC, MWxint)
-    else:
-      return(MOC)
 
+    # save to file
+    if savevar == True: utils_spec.savevar(MOC, fname)
 
-# ---------------------------------------------------------------------------------------
-# - MOC on auxillary grid based on VVEL
-# ---------------------------------------------------------------------------------------
-#def calc_MOC_auxgrd_VVEL(lat_auxgrd, z_auxgrd, MW, ncdat, do_normalize=True, dump_MWxint=False, savevar=True):
-
-
-#################################################################################################
-#################################################################################################
-## OOOOLD STUFF
-#################################################################################################
-#################################################################################################
-
-#MOC = xr.DataArray(np.zeros([len(lat_auxgrd),len(MW.z_w_top)]),name='MOC on aux grid', dims=['nlat_aux', 'z_w_top'], coords = {'nlat_aux':np.arange(len(lat_auxgrd)),'z_w_top':MW.z_w_top})
-#for n in np.arange(1,len(lat_aux_grd)+1)
-#  MOC[dict(nlat_aux=n)] = MOC.isel(nlat_aux=n-1)
-#  for j in np.arange(len(MW.nlat))
-#    for i in np.arange(len(MW.nlon))
-#      if lat_auxgrd[n] <= MW.TLAT.isel(nlon=i, nlat=j) < lat_auxgrd[n+1]:
-#        for k in np.arange(len(MW.z_w_top))
-#          MOC[dict(nlat_aux=n, z_w_top=k)] = MOC[n,k] + MW.isel(nlon=i, nlat=j, z_w_top=k)
+    return(MOC)
