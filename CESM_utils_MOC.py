@@ -140,11 +140,11 @@ def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, M, ncdat, do_nor
 
     # get masks and iteration-indices to speed up subsequent loops (recalculate if loading from file fails)
     try: 	mask_auxgrd = utils_spec.loadvar('variables/mask_auxgrd')
-    except: 	mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_auxgrd, M)
+    except: 	mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_auxgrd, ncdat)
     try:	iter_maskcombo = utils_spec.loadvar('variables/iter_maskcombo')
-    except:     iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, M, mask_auxgrd, ncdat.REGION_MASK)
+    except:     iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd)
     try:	maxiter_depth = utils_spec.loadvar('variables/maxiter_depth') 
-    except:     maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_auxgrd, M, ncdat.HT.values)
+    except:     maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_auxgrd, ncdat)
     
     # zonal integration along aux grid
     print('> zonal integration')

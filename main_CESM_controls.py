@@ -60,46 +60,24 @@ lat_auxgrd, z_t_auxgrd, z_w_top_auxgrd = utils_MOC.get_default_auxgrd(ncdat)  	#
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid - WVEL (in Sv)
 try:    MOC_auxgrd_W = utils_spec.loadvar('variables/MOC_auxgrd_W') 		# load from file
-except: try:    MWxint = utils_spec.loadvar('variables/MOC_auxgrd_W') 	        # load from file
-        except: MWxint = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW, ncdat, savevar=True)
-        MOC_auxgrd_W = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint, ncdat, savevar=True)
+except: 
+  try:    MWxint = utils_spec.loadvar('variables/MOC_auxgrd_W') 	        # load from file
+  except: MWxint = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW, ncdat, savevar=True)
+  MOC_auxgrd_W = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint, ncdat, savevar=True)
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid - VVEL (in Sv)
 try:    MOC_auxgrd_V = utils_spec.loadvar('variables/MOC_auxgrd_V') 		# load from file
-except: try:    MVxint = utils_spec.loadvar('variables/MOC_auxgrd_V') 	        # load from file
-        except: MVxint = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MV_projauxgrd, ncdat, savevar=True)
-        MOC_auxgrd_V = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MVxint, ncdat, savevar=True)
+except: 
+  try:    MVxint = utils_spec.loadvar('variables/MOC_auxgrd_V') 	        # load from file
+  except: MVxint = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MV_projauxgrd, ncdat, savevar=True)
+  MOC_auxgrd_V = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MVxint, ncdat, savevar=True)
 
-# =======================================================================================
-#  Seafloor masked for ATLANTIC - these are actually z_t_top values!!
-# =======================================================================================
-HT_auxgrd_max = utils_spec.loadvar('variables/HT_auxgrd_max') 		# load from file
-HT_mgrd_max = utils_spec.loadvar('variables/HT_mgrd_max') 		# load from file
-
-# mask HT of model grid for ATLANTIC
-HTm = utils_mask.mask_ATLANTIC(ncdat.HT, ncdat.REGION_MASK)
-
-# a few variables to speed up subsequent loops
-iter_lat_auxgrd = np.arange(len(lat_auxgrd))
-iter_lat_mgrd = np.arange(len(MW.nlat))
-
-# get i-iterators for mask for auxgrd and atlantic #! rewrite comment
-try: 	iter_maskcombo = utils_spec.loadvar('variables/iter_maskcombo')     
-except: iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, MW, mask_auxgrd, ncdat.REGION_MASK)
-
-# find maximal depth for auxgrd boxes
-HT_auxgrd_max = np.zeros(len(iter_lat_auxgrd))
-for n in iter_lat_auxgrd:
-  utils_spec.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd))# initialize and update progress bar
-  for j in iter_lat_mgrd:
-    for i in iter_maskcombo[n,j]:
-      HT_auxgrd_max[n] = np.nanmax([HT_auxgrd_max[n], ncdat.HT[j,i]])
-utils_spec.ProgBar('done')
-utils_spec.savevar(HT_auxgrd_max, 'variables/HT_auxgrd_max') 		# save to file
-
-# find maximal depth for mgrd boxes
-HT_mgrd_max = HTm.max(dim='nlon')
-utils_spec.savevar(HT_mgrd_max, 'variables/HT_mgrd_max') 		# save to file
+# ---------------------------------------------------------------------------------------
+# - Zonal maximum of ocean depth
+try:    HT_auxgrd_xmax = utils_spec.loadvar('variables/HT_auxgrd_xmax') 	# load from file
+except: HT_auxgrd_xmax = utils_mask.calc_HT_auxgrd_xmax(lat_auxgrd, ncdat, savevar=True)
+try:    HT_mgrd_xmax = utils_spec.loadvar('variables/HT_mgrd_xmax') 	        # load from file
+except: HT_mgrd_xmax = utils_mask.calc_HT_mgrd_xmax(ncdat, savevar=True)
 
 # #######################################################################################
 #  PLOTTING
@@ -141,7 +119,7 @@ plt.xlim([-36,90])
 utils_plt.print2pdf(fig, 'testfigures/MOC_model')
 
 # MOC_auxgrd_W
-fig, ax = utils_plt.plot_slice(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W.T, cmapstep = 1, plttype='contourf')
+fig, ax = utils_plt.plot_slice(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W, cmapstep = 1, plttype='contourf')
 plt.plot(lat_auxgrd,HT_auxgrd_max)  				# plot seafloor
 plt.plot([-50]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
@@ -149,7 +127,7 @@ plt.title('MOC auxgrd W')
 utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_W')
 
 # MOC_auxgrd_V
-fig, ax = utils_plt.plot_slice(lat_auxgrd, z_t_auxgrd, MOC_auxgrd_V.T, cmapstep = 1, plttype='contourf')
+fig, ax = utils_plt.plot_slice(lat_auxgrd, z_t_auxgrd, MOC_auxgrd_V, cmapstep = 1, plttype='contourf')
 plt.plot(lat_auxgrd,HT_auxgrd_max)  				# plot seafloor
 plt.plot([-50]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
