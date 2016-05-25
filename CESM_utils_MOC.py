@@ -23,7 +23,7 @@ import numpy as np
 import xarray as xr
 import pickle
 import CESM_utils_mask as utils_mask
-import UTILS_specials as utils_spec
+import UTILS_misc as utils_misc
 
 # =======================================================================================
 # - Compute vertical volume transport MW (in Sv)
@@ -139,36 +139,36 @@ def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, M, ncdat, do_nor
     iter_lat_M = np.arange(len(M.nlat))
 
     # get masks and iteration-indices to speed up subsequent loops (recalculate if loading from file fails)
-    try: 	mask_auxgrd = utils_spec.loadvar('variables/mask_auxgrd')
+    try: 	mask_auxgrd = utils_misc.loadvar('variables/mask_auxgrd')
     except: 	mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_auxgrd, ncdat)
-    try:	iter_maskcombo = utils_spec.loadvar('variables/iter_maskcombo')
+    try:	iter_maskcombo = utils_misc.loadvar('variables/iter_maskcombo')
     except:     iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd)
-    try:	maxiter_depth = utils_spec.loadvar('variables/maxiter_depth') 
+    try:	maxiter_depth = utils_misc.loadvar('variables/maxiter_depth') 
     except:     maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_auxgrd, ncdat)
     
     # zonal integration along aux grid
     print('> zonal integration')
     Mxint = np.zeros([len(z_auxgrd), len(lat_auxgrd)])  	# pre-allocation with zeros (np-array like for speed)
     for n in iter_lat_auxgrd:
-      utils_spec.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd))# initialize and update progress bar
+      utils_misc.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd))# initialize and update progress bar
       for j in iter_lat_M:
 #        if any(mask_auxgrd[n,j,:]):						# to speed up the code
           for i in iter_maskcombo[n,j]: 					# limit zonal integration to Atlantic and grid-overlay
             for k in np.arange(int(maxiter_depth[j,i])): 			# stop at depth of seafloor
               Mxint[k,n] = np.nansum([Mxint[k,n],M[k,j,i]]) 			# zonal integration
-    utils_spec.ProgBar('done') 							# terminate progress bar
+    utils_misc.ProgBar('done') 							# terminate progress bar
     
     # write Mxint to xarray
     Mxint= xr.DataArray(Mxint,
 		attrs={'units':u'Sv'},
-		dims={'z_w_top':np.arange(len(z_auxgrd)), 'nlat':np.arange(len(lat_auxgrd))})
-    utils_spec.savevar(Mxint, 'variables/MVxint')
+                coords={'z_w_top':np.arange(len(z_auxgrd)), 'nlat':np.arange(len(lat_auxgrd))},
+		dims=['z_w_top','nlat'])
     if velocity_component == 'W':
       Mxint.name = 'MW zonally integrated'                                      # naming xarrays
-      if savevar == True: utils_spec.savevar(Mxint, 'variables/MWxint')         # save to file
+      if savevar == True: utils_misc.savevar(Mxint, 'variables/MWxint')         # save to file
     elif velocity_component == 'V':
       Mxint.name = 'MV zonally integrated'                                      # naming xarrays
-      if savevar == True: utils_spec.savevar(Mxint, 'variables/MVxint')         # save to file
+      if savevar == True: utils_misc.savevar(Mxint, 'variables/MVxint')         # save to file
 
     return(Mxint)
 
@@ -191,15 +191,16 @@ def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, Mxint, ncdat, do_n
     # preallocation of MOC as xarray
     MOC = xr.DataArray(Mxint,           # start with Mxint, which subsequently will be summed up
 		attrs={'units':u'Sv'},
-		dims={'z_w_top':np.arange(len(z_auxgrd)), 'nlat':np.arange(len(lat_auxgrd)), })
+                coords=[np.arange(len(z_auxgrd)), np.arange(len(lat_auxgrd))],
+		dims=['z_w_top', 'nlat'])
 
     if velocity_component == 'W':
       # meridional integration along aux grid
       print('> meridional integration')
       for n in iter_lat_auxgrd[1:]:
-        utils_spec.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd))      # initialize and update progress bar
-        MOC[dict(nlat=n)] = np.nansum([MOC[:,n], MOC[:,n-1]], axis=0) 		        # meridional integration
-      utils_spec.ProgBar('done') 							# terminate progress bar
+        utils_misc.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd), forceinit=True)      # initialize and update progress bar
+        MOC[:,n] = np.nansum([MOC[:,n], MOC[:,n-1]], axis=0) 		        # meridional integration
+      utils_misc.ProgBar('done') 							# terminate progress bar
 
       MOC.name = 'MOC on auxillary grid calculated from WVEL'                           # naming xarrays
       fname = 'MOC_auxgrd_W'                                                            # name for saving
@@ -208,18 +209,21 @@ def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, Mxint, ncdat, do_n
       # vertical integration along aux grid
       print('> vertical integration')
       for k in iter_z_auxgrd[1:]:
-        utils_spec.ProgBar('step', barlen=60, step=k, nsteps=len(iter_z_auxgrd))        # initialize and update progress bar
-        MOC[dict(z_w_top=k)] = np.nansum([MOC[k,:], MOC[k-1,:]], axis=0) 		# meridional integration
-      utils_spec.ProgBar('done') 							# terminate progress bar
+        utils_misc.ProgBar('step', barlen=60, step=k, nsteps=len(iter_z_auxgrd), forceinit=True)        # initialize and update progress bar
+        MOC[k,:] = np.nansum([MOC[k,:], MOC[k-1,:]], axis=0) 		# meridional integration
+      utils_misc.ProgBar('done') 					# terminate progress bar
 
       MOC.name = 'MOC on auxillary grid calculated from VVEL'                           # naming xarrays
       fname = 'MOC_auxgrd_V'                                                            # name for saving
-   
+    
     # normalization relative to North (shift values such that zero at northern boundary)
     if do_normalize == True:
-      MOC = MOC - MOC.isel(nlat=-1)
+      MOC = MOC - MOC[:,-1]
 
     # save to file
-    if savevar == True: utils_spec.savevar(MOC, fname)
+    if savevar == True:
+      print('foo')
+      print(fname)
+      utils_misc.savevar(MOC, 'variables/'+fname)
 
     return(MOC)

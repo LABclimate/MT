@@ -15,7 +15,7 @@ sys.path.append('/home/buerki/Documents/MT/scripts/')
 import CESM_utils_mask as utils_mask
 import CESM_utils_plt as utils_plt
 import CESM_utils_conv as utils_conv
-import UTILS_specials as utils_spec
+import UTILS_misc as utils_misc
 import CESM_utils_MOC as utils_MOC
 import CESM_utils_BSF as utils_BSF
 
@@ -52,32 +52,36 @@ MW = utils_MOC.calc_MW(ncdat) 						  # valid on both grids
 # ---------------------------------------------------------------------------------------
 # - BSF and MOC on model grid (in Sv)
 BSF_mgrd, MVzint = utils_BSF.calc_BSF_mgrd(MV_mgrd, dump_MVzint=True)
-MOC_mgrd_W, MWxint = utils_MOC.calc_MOC_mgrd('W', MW, do_normalize = True, dump_Mxint=True)
-MOC_mgrd_V, MVxint = utils_MOC.calc_MOC_mgrd('V', MV_projauxgrd, do_normalize = True, dump_Mxint=True)
+MOC_mgrd_W, MWxint = utils_MOC.calc_MOC_mgrd('W', MW, do_normalize=True, dump_Mxint=True)
+MOC_mgrd_V, MVxint = utils_MOC.calc_MOC_mgrd('V', MV_projauxgrd, do_normalize=True, dump_Mxint=True)
 # ---------------------------------------------------------------------------------------
 # - Auxillary grid
 lat_auxgrd, z_t_auxgrd, z_w_top_auxgrd = utils_MOC.get_default_auxgrd(ncdat)  	# define auxillary grid
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid - WVEL (in Sv)
-try:    MOC_auxgrd_W = utils_spec.loadvar('variables/MOC_auxgrd_W') 		# load from file
+try:    MOC_auxgrd_W = utils_misc.loadvar('variables/MOC_auxgrd_W') 		# load from file
 except: 
-  try:    MWxint = utils_spec.loadvar('variables/MOC_auxgrd_W') 	        # load from file
+  try:    MWxint = utils_misc.loadvar('variables/MWxint') 	                # load from file
   except: MWxint = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW, ncdat, savevar=True)
   MOC_auxgrd_W = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint, ncdat, savevar=True)
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid - VVEL (in Sv)
-try:    MOC_auxgrd_V = utils_spec.loadvar('variables/MOC_auxgrd_V') 		# load from file
-except: 
-  try:    MVxint = utils_spec.loadvar('variables/MOC_auxgrd_V') 	        # load from file
+try:    MOC_auxgrd_V = utils_misc.loadvar('variables/MOC_auxgrd_V') 		# load from file
+except:
+  try:    MVxint = utils_misc.loadvar('variables/MVxint') 	                # load from file
   except: MVxint = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MV_projauxgrd, ncdat, savevar=True)
   MOC_auxgrd_V = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MVxint, ncdat, savevar=True)
 
 # ---------------------------------------------------------------------------------------
 # - Zonal maximum of ocean depth
-try:    HT_auxgrd_xmax = utils_spec.loadvar('variables/HT_auxgrd_xmax') 	# load from file
-except: HT_auxgrd_xmax = utils_mask.calc_HT_auxgrd_xmax(lat_auxgrd, ncdat, savevar=True)
-try:    HT_mgrd_xmax = utils_spec.loadvar('variables/HT_mgrd_xmax') 	        # load from file
-except: HT_mgrd_xmax = utils_mask.calc_HT_mgrd_xmax(ncdat, savevar=True)
+try:    HT_auxgrd_xmax = utils_misc.loadvar('variables/HT_auxgrd_xmax') 	# load from file
+except: HT_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'T', savevar=True)
+try:    HT_mgrd_xmax = utils_misc.loadvar('variables/HT_mgrd_xmax') 	        # load from file
+except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', savevar=True)
+try:    HU_auxgrd_xmax = utils_misc.loadvar('variables/HU_auxgrd_xmax') 	# load from file
+except: HU_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'U', savevar=True)
+try:    HU_mgrd_xmax = utils_misc.loadvar('variables/HU_mgrd_xmax') 	        # load from file
+except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', savevar=True)
 
 # #######################################################################################
 #  PLOTTING
@@ -112,24 +116,40 @@ plt.title('MOC mgrd V')
 # MOC_model
 MOC_model = ncdat.MOC.isel(time=0, transport_reg=1, moc_comp=0)
 #MOC_model = MOC_model - MOC_model[:,-1] # normalization
-fig, ax = utils_plt.plot_slice(MOC_model.lat_aux_grid, MOC_model.moc_z, MOC_model, cmapstep = .1, plttype='contourf')
-plt.plot(lat_auxgrd,HT_auxgrd_max) 				# plot seafloor
+fig, ax = utils_plt.plot_slice(MOC_model.lat_aux_grid, MOC_model.moc_z, MOC_model, cmapstep=.1, plttype='contourf')
+plt.plot(lat_auxgrd,HT_auxgrd_xmax) 				# plot seafloor
 plt.title('MOC model')
 plt.xlim([-36,90])
 utils_plt.print2pdf(fig, 'testfigures/MOC_model')
 
+# MWxint
+fig, ax = utils_plt.plot_slice(lat_auxgrd, z_w_top_auxgrd, MWxint, cmapstep=1, plttype='contourf')
+plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
+plt.plot([0]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
+plt.xlim([-36,90])
+plt.title('MWxint')
+utils_plt.print2pdf(fig, 'testfigures/MWxint')
+
+# MVxint
+fig, ax = utils_plt.plot_slice(lat_auxgrd, z_t_auxgrd, MVxint, cmapstep=1, plttype='contourf')
+plt.plot(lat_auxgrd,HU_auxgrd_xmax)  				# plot seafloor
+plt.plot([0]*len(MV_projauxgrd.z_t), MV_projauxgrd.z_t, 'x', color='red') 	# plot depth-layers
+plt.xlim([-36,90])
+plt.title('MVxint')
+utils_plt.print2pdf(fig, 'testfigures/MVxint')
+
 # MOC_auxgrd_W
-fig, ax = utils_plt.plot_slice(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W, cmapstep = 1, plttype='contourf')
-plt.plot(lat_auxgrd,HT_auxgrd_max)  				# plot seafloor
-plt.plot([-50]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
+fig, ax = utils_plt.plot_slice(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W, cmapstep=1, plttype='contourf')
+plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
+plt.plot([0]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
 plt.title('MOC auxgrd W')
 utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_W')
 
 # MOC_auxgrd_V
-fig, ax = utils_plt.plot_slice(lat_auxgrd, z_t_auxgrd, MOC_auxgrd_V, cmapstep = 1, plttype='contourf')
-plt.plot(lat_auxgrd,HT_auxgrd_max)  				# plot seafloor
-plt.plot([-50]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
+fig, ax = utils_plt.plot_slice(lat_auxgrd, z_t_auxgrd, MOC_auxgrd_V, cmapstep=1e6, plttype='contourf')
+plt.plot(lat_auxgrd,HU_auxgrd_xmax)  				# plot seafloor
+plt.plot([0]*len(MV_projauxgrd.z_t), MV_projauxgrd.z_t, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
 plt.title('MOC auxgrd V')
 utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_V')
@@ -137,7 +157,7 @@ utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_V')
 # ---------------------------------------------------------------------------------------
 
 # Seafloor
-fig, ax = plt.contourf(ncdat.HT.roll(nlon=54), levels = np.linspace(0,560000,100))
+fig, ax = plt.contourf(ncdat.HT.roll(nlon=54), levels=np.linspace(0,560000,100))
 plt.title('Depth of Seafloor')
 utils_plt.print2pfig, map = utils_plt.pcolor_basemap(MW.roll(nlon=54).mean(dim='z_w_top'), 'T', cmapstep=.1)
 fig, map = utils_plt.pcolor_basemap(MW.roll(nlon=54).mean(dim='z_w_top'), 'T', cmapstep=.1)
