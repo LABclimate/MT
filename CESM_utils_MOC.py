@@ -10,13 +10,15 @@
 # contained functions:
 #################################
 # - calc_MW()
-# - calc_MOC_on_model_grid()
+# - calc_MOC_model_grid()
 # - get_default_auxgrd()
-# - calc_MOC_on_auxgrd()
+# - calc_Mxint_auxgrd()
+# - calc_MOC_auxgrd()
 #################################
 # please log your changes below:
 #################################
 # 17-Mai-2016 - buerki@climate.unibe.ch : created this toolboxfew
+# 24?-Mai-2016 -buerki@climate.unibe.ch : seperated calc_Mxint_auxgrd() from calc_MOC_auxgrd()
 #################################
 
 import numpy as np
@@ -84,30 +86,16 @@ def calc_MOC_mgrd(velocity_component, M, do_normalize=True, dump_Mxint=False):
 # - MOC on auxillary grid
 # =======================================================================================
 '''
-    Steps:
-    ======
-    > define auxillary grid
-    > generate mask (mask_auxgrd) that is 'True' where latitudes of both grids lie in the same box
-    > generate array (maxiter_depth) for seafloor detection. It contains the indices of maximal depth
-    for each point on model grid (T points) in order to stop k-iteration at the seafloor.
-    > calculate Mxint by zonal integration along aux grid
-    > n-loop: over latitude on aux grid
-    >   j-loop: over latitudes on model grid
-    >     check whether mask_auxgrd of current n, j is True anywhere (just for speeding up)
-    >     i-loop: over those longitudes where both, mask_modgrd (regional mask) and mask_auxgrd are True.
-    the order of the iteration is rolled to begin at western boundary of Atlantic
-    but actually, this 
-    >       k-loop: over depths from surface down to depth of seafloor relative to model grid (j,i position)
-    >         zonal integration by summing up vertical volume transports (M) of model grid.
-    > calculate MOC by meridional of Mxint integration along aux grid
-    > normalization relative to northern boundary: at every point substract northernmost value at same depth, 
-    such that streamfunction closes at NP.
+    This collection contains 3 functions, which :
+     A: returns a default for an auxillary grid. 
+     B: integration of vertical(MW)/meridional(MV) transport in zonal direction.
+     C: integration of the result of B in meridional(MW)/vertical(MV) direction.
 
     Comments:
     =========
     > As the np.nansum() is used for zonal integration, ridges are ignored and integrated through. 
-    This might be inappropriate.
-    > For speed reasons some variables are written to new variables
+    This might be inappropriate. --> it's just the definition of the streamfunction...
+    > For speed reasons some data from xarrays is copied to np-arrays
     > For speed reasons absolute indexing is used with 
     n: latitude on aux-grid, 
     j: latitude on model-grid, 
@@ -133,6 +121,20 @@ def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, M, ncdat, do_nor
      > velocity_component 	: either 'W' or  'V' (string)    
      > M                        : volume transport (NOT rolled!!)
      > ncdat                    : netCDFdata to load REGION_MASK
+
+    Steps:
+     > generate mask (mask_auxgrd) that is 'True' where latitudes of both grids lie in the same box
+     > generate array (maxiter_depth) for seafloor detection. It contains the indices of maximal depth
+       for each point on model grid (T points) in order to stop k-iteration at the seafloor.
+     > calculate Mxint by zonal integration along aux grid
+     > n-loop: over latitude on aux grid
+     >   j-loop: over latitudes on model grid
+     >     check whether mask_auxgrd of current n, j is True anywhere (just for speeding up)
+     >     i-loop: over those longitudes where both, mask_modgrd (regional mask) and mask_auxgrd are True.
+                   the order of the iteration is rolled to begin at western boundary of Atlantic
+                   but actually, this 
+     >       k-loop: over depths from surface down to depth of seafloor relative to model grid (j,i position)
+     >         zonal integration by summing up vertical volume transports (M) of model grid.
     '''
     # a few variables to speed up subsequent loops 
     iter_lat_auxgrd = np.arange(len(lat_auxgrd))
@@ -162,13 +164,14 @@ def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, M, ncdat, do_nor
     Mxint= xr.DataArray(Mxint,
 		attrs={'units':u'Sv'},
                 coords={'z_w_top':np.arange(len(z_auxgrd)), 'nlat':np.arange(len(lat_auxgrd))},
-		dims=['z_w_top','nlat'])
+		dims=['z_w_top', 'nlat'])
+
     if velocity_component == 'W':
-      Mxint.name = 'MW zonally integrated'                                      # naming xarrays
-      if savevar == True: utils_misc.savevar(Mxint, 'variables/MWxint')         # save to file
+      Mxint.name = 'MW zonally integrated'                                      # naming xarray
+      if savevar == True: utils_misc.savevar(Mxint, 'variables/MWxint_auxgrd')  # save to file
     elif velocity_component == 'V':
-      Mxint.name = 'MV zonally integrated'                                      # naming xarrays
-      if savevar == True: utils_misc.savevar(Mxint, 'variables/MVxint')         # save to file
+      Mxint.name = 'MV zonally integrated'                                      # naming xarray
+      if savevar == True: utils_misc.savevar(Mxint, 'variables/MVxint_auxgrd')  # save to file
 
     return(Mxint)
 
@@ -183,28 +186,30 @@ def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, Mxint, ncdat, do_n
      > velocity_component 	: either 'W' or  'V' (string)    
      > Mxint                    : zonally integrated volume transport (NOT rolled!!)
      > ncdat                    : netCDFdata to load REGION_MASK
+
+    Steps:
+     > calculate MOC by meridional of Mxint integration along aux grid
+     > normalization relative to northern boundary: at every point substract northernmost value at same depth, 
+       such that streamfunction closes at NP.
     '''
     # a few variables to speed up subsequent loops 
     iter_lat_auxgrd = np.arange(len(lat_auxgrd))
     iter_z_auxgrd = np.arange(len(z_auxgrd))
 
-    # preallocation of MOC as xarray
-    MOC = xr.DataArray(Mxint,           # start with Mxint, which subsequently will be summed up
-		attrs={'units':u'Sv'},
-                coords=[np.arange(len(z_auxgrd)), np.arange(len(lat_auxgrd))],
-		dims=['z_w_top', 'nlat'])
+    # preallocation of MOC as np-array
+    MOC = np.copy(Mxint) # start with Mxint, which subsequently will be summed up
 
     if velocity_component == 'W':
       # meridional integration along aux grid
       print('> meridional integration')
       for n in iter_lat_auxgrd[1:]:
         utils_misc.ProgBar('step', barlen=60, step=n, nsteps=len(iter_lat_auxgrd), forceinit=True)      # initialize and update progress bar
-        MOC[:,n] = np.nansum([MOC[:,n], MOC[:,n-1]], axis=0) 		        # meridional integration
-      utils_misc.ProgBar('done') 							# terminate progress bar
+        MOC[:,n] = np.nansum([MOC[:,n], MOC[:,n-1]], axis=0) 	        # meridional integration
+      utils_misc.ProgBar('done') 					# terminate progress bar
 
-      MOC.name = 'MOC on auxillary grid calculated from WVEL'                           # naming xarrays
-      fname = 'MOC_auxgrd_W'                                                            # name for saving
-        				
+      xrname = 'MOC on auxillary grid calculated from WVEL'             # name of xarray
+      fname = 'MOC_auxgrd_W'                                            # name for saving
+
     elif velocity_component == 'V':
       # vertical integration along aux grid
       print('> vertical integration')
@@ -213,17 +218,22 @@ def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, Mxint, ncdat, do_n
         MOC[k,:] = np.nansum([MOC[k,:], MOC[k-1,:]], axis=0) 		# meridional integration
       utils_misc.ProgBar('done') 					# terminate progress bar
 
-      MOC.name = 'MOC on auxillary grid calculated from VVEL'                           # naming xarrays
-      fname = 'MOC_auxgrd_V'                                                            # name for saving
-    
+      xrname = 'MOC on auxillary grid calculated from VVEL'             # name of xarray
+      fname = 'MOC_auxgrd_V'                                            # name for saving
+
+    # write to xarray
+    MOC = xr.DataArray(MOC,
+		attrs={'units':u'Sv'},
+                coords=[np.arange(len(z_auxgrd)), np.arange(len(lat_auxgrd))],
+		dims=['z_w_top', 'nlat'],
+                name=xrname)
+
     # normalization relative to North (shift values such that zero at northern boundary)
     if do_normalize == True:
       MOC = MOC - MOC[:,-1]
 
     # save to file
     if savevar == True:
-      print('foo')
-      print(fname)
       utils_misc.savevar(MOC, 'variables/'+fname)
 
     return(MOC)

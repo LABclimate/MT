@@ -41,7 +41,7 @@ plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 
 # wrapper to plot pcolorplot of any lat-lon variable maps using Basemap
-def pcolor_basemap_new(var, cmapstep=1, mappingtoolbox='basemap', proj='ortho'):    
+def pcolor_basemap_new(var, nlevels=100, mappingtoolbox='basemap', proj='ortho'):    
     # add cyclic border (to prevent gap in pcolor plot)
     var = utils_conv.add_cyclic(var)
     # draw plot in new figure
@@ -54,11 +54,11 @@ def pcolor_basemap_new(var, cmapstep=1, mappingtoolbox='basemap', proj='ortho'):
     return(fig, map)
 
 # wrapper to plot pcolorplot of any lat-lon variable maps using Basemap
-def pcolor_basemap(var, TorUgrid, cmapstep=1, mappingtoolbox='basemap', proj='ortho'):
+def pcolor_basemap(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='ortho'):
     # colormap
     min = np.floor(np.nanmin(var)) # minimum value of varin
     max = np.ceil(np.nanmax(var))  # maximum value of varin
-    cmap, norm = utils_plt.get_cmap(min=min,max=max,step=cmapstep,scheme=utils_plt.get_viridis())
+    cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis())
     # add cyclic border (to prevent gap in pcolor plot)
     var = utils_conv.add_cyclic(var)
     # choose U or T grid
@@ -78,25 +78,28 @@ def pcolor_basemap(var, TorUgrid, cmapstep=1, mappingtoolbox='basemap', proj='or
     return(fig, map)
 
 
-def plot_slice(xvar, yvar, var, cmapstep=1, plttype='contourf'):
+def plot_slice(xvar, yvar, var, nlevels=100, plttype='contourf'):
     #colormap
     min = np.floor(np.nanmin(var)) # minimum value of varin
     max = np.ceil(np.nanmax(var))  # maximum value of varin
-    cmap, norm = utils_plt.get_cmap(min=min,max=max,step=cmapstep,scheme=utils_plt.get_viridis())
+    cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis())
     # draw plot in new figure
     fig = plt.figure()
     if plttype == 'contourf':
-        ax = plt.contourf(xvar, yvar, var, cmap=cmap)
+        ax = plt.contourf(xvar, yvar, var, cmap=cmap, levels=np.linspace(min, max, 100))
     elif plttype == 'pcolor':
 	ax = plt.pcolor(xvar, yvar, var, cmap=cmap)
     plt.colorbar(ax)
     plt.gca().invert_yaxis()
-   # plt.gca().set_yscale("log") 
+   # plt.gca().set_yscale("log")
    ## overwrite ticks (sofar only indices) with given values
    # if xticks:
    #     plt.xticks(xticks[[int(i) for i in plt.xticks()[0][:-1]]])
    # if yticks:
    #     plt.yticks(yticks[[int(i) for i in plt.yticks()[0][:-1]]])
+
+
+    plt.text(-10,600000, 'max: {}, min: {}'.format(round(np.nanmax(var),2), round(np.nanmin(var),2)))
     return(fig, ax)
 
 # print figure to pdf
@@ -128,11 +131,19 @@ def emptyBasemapFig(projection='ortho'):
 
 
 # get_cmap interpolates the colormap on a discrete range.
-def get_cmap(min, max, step, scheme):
+def get_cmap_old(min, max, step, scheme):
     cmlist=[];
     levels=np.arange(min,max+step,step) # "+ stepsize" will include cmmax
     cmlist=np.array([int(x) for x in np.linspace(0,252,len(levels)+1)]) # interpolation on [0,252]
     cmap, norm = from_levels_and_colors(levels,scheme(cmlist) , extend='both')
+    return cmap, norm
+
+# get_cmap interpolates the colormap on a discrete range.
+def get_cmap(min, max, nlevels, scheme):
+    cmlist=[];
+    levels=np.linspace(min,max,nlevels)
+    cmlist=np.array([int(x) for x in np.linspace(0,252,len(levels)+1)]) # interpolation on [0,252]
+    cmap, norm = from_levels_and_colors(levels, scheme(cmlist) , extend='both')
     return cmap, norm
 
 

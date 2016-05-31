@@ -28,10 +28,10 @@ def calc_MV(ncdat):
     '''
     Comments:
      > Conversion from cgs units to Sv by multiplication with 1e-12
-     > Think about NOT to roll #!
+     #> Think about NOT to roll #!
     '''
-    vvel = utils_mask.mask_ATLANTIC(ncdat.VVEL.mean(dim='time').roll(nlon=54), ncdat.REGION_MASK.roll(nlon=54))
-    DXU = ncdat.DXU.roll(nlon=54) 			 # x-spacing centered at U points
+    vvel = utils_mask.mask_ATLANTIC(ncdat.VVEL.mean(dim='time'), ncdat.REGION_MASK)
+    DXU = ncdat.DXU 		                     # x-spacing centered at U points
     DZU = ncdat.z_w_bot.values-ncdat.z_w_top.values  # z-spacing centered at U points
     UYAREA = np.array([DXU.values*ii for ii in DZU]) # y-area of U cells
     MV = xr.DataArray(vvel*UYAREA*1e-12, 

@@ -32,6 +32,7 @@
 # 24-Mai-2016 - buerki@climate.unibe.ch : changed MW to ncdat in various places
 #                                         created calc_HT_mgrd_xmax()
 #                                         created calc_HT_auxgrd_xmax()
+# 31-Mai-2016 - buerki@climate.unibe.ch : in gen_maxiter_depth() changed '<' back to '<='
 #################################
 
 import numpy as np
@@ -157,7 +158,7 @@ def gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, ncdat, savevar=True):
     for j in iter_lat_mgrdT:
       utils_misc.ProgBar('step', barlen=32, step=j, nsteps=len(iter_lat_mgrdT))
       for i in iter_lon_mgrdT:
-        try:    maxiter_depth[j,i] = np.where(z_w_auxgrd < HT[j,i])[-1][-1] 	# index of maximal depth at j,i
+        try:    maxiter_depth[j,i] = np.where(z_w_auxgrd <= HT[j,i])[-1][-1] 	# index of maximal depth at j,i
         except: maxiter_depth[j,i] = np.array([])
     utils_misc.ProgBar('done')
 
@@ -175,12 +176,14 @@ def gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, ncdat, savevar=True):
 def calc_H_mgrd_xmax(ncdat, TorUgrid, savevar=True):
     if TorUgrid == 'T':
       Hm = utils_mask.mask_ATLANTIC(ncdat.HT, ncdat.REGION_MASK) # mask Atlantic
+      fname = 'HT_mgrd_xmax'
     elif TorUgrid == 'U':
       Hm = utils_mask.mask_ATLANTIC(ncdat.HU, ncdat.REGION_MASK) # mask Atlantic
+      fname = 'HU_mgrd_xmax'
 
     H_mgrd_xmax = Hm.max(dim='nlon')    # find max along longitudes
     if savevar == True:                 # save to file
-      utils_misc.savevar(H_mgrd_xmax, 'variables/HT_mgrd_xmax') 
+      utils_misc.savevar(H_mgrd_xmax, 'variables/' + fname) 
     return(H_mgrd_xmax)
 
 # ...for auxillary grid
