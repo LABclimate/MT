@@ -18,6 +18,7 @@ import CESM_utils_conv as utils_conv
 import UTILS_misc as utils_misc
 import CESM_utils_MOC as utils_MOC
 import CESM_utils_BSF as utils_BSF
+import CESM_paths as paths
 
 # #######################################################################################
 #  GET AND PROCESS DATA
@@ -56,33 +57,35 @@ MOC_mgrd_W, MWxint_mgrd = utils_MOC.calc_MOC_mgrd('W', MW, do_normalize=True, du
 MOC_mgrd_V, MVxint_mgrd = utils_MOC.calc_MOC_mgrd('V', MV_projauxgrd, do_normalize=True, dump_Mxint=True)
 # ---------------------------------------------------------------------------------------
 # - Auxillary grid
-lat_auxgrd, z_t_auxgrd, z_w_top_auxgrd = utils_MOC.get_default_auxgrd(ncdat)  	# define auxillary grid
-lat_auxgrd = np.linspace(-80, 90, 11)
+auxgrd_name = ['latMOCmodelEveryOther_z60', 'lateq80S90N_zeq60'][0]       # choose aux grid
+lat_auxgrd, z_t_auxgrd, z_w_top_auxgrd = utils_MOC.get_auxgrd(ncdat, auxgrd_name)
+path_vars = paths.get_path2var(auxgrd_name)
+utils_misc.checkdir(path_vars)
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid - WVEL (in Sv)
-try:    MOC_auxgrd_W = utils_misc.loadvar('variables/MOC_auxgrd_W') 		# load from file
-except: 
-  try:    MWxint_auxgrd = utils_misc.loadvar('variables/MWxint_auxgrd') 	                # load from file
-  except: MWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW, ncdat, savevar=True)
-  MOC_auxgrd_W = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint_auxgrd, ncdat, savevar=True)
+try:    MOC_auxgrd_W = utils_misc.loadvar(path_vars+'MOC_auxgrd_W') 		# load from file
+except:
+  try:    MWxint_auxgrd = utils_misc.loadvar(path_vars+'MWxint_auxgrd')         # load from file
+  except: MWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW, ncdat, path_vars, savevar=True)
+  MOC_auxgrd_W = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint_auxgrd, ncdat, path_vars, savevar=True)
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid - VVEL (in Sv)
-try:    MOC_auxgrd_V = utils_misc.loadvar('variables/MOC_auxgrd_V') 		# load from file
+try:    MOC_auxgrd_V = utils_misc.loadvar(path_vars+'MOC_auxgrd_V') 		# load from file
 except:
-  try:    MVxint_auxgrd = utils_misc.loadvar('variables/MVxint_auxgrd') 	                # load from file
-  except: MVxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MV_projauxgrd, ncdat, savevar=True)
-  MOC_auxgrd_V = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MVxint_auxgrd, ncdat, savevar=True)
+  try:    MVxint_auxgrd = utils_misc.loadvar(path_vars+'MVxint_auxgrd')         # load from file
+  except: MVxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MV_projauxgrd, ncdat, path_vars, savevar=True)
+  MOC_auxgrd_V = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MVxint_auxgrd, ncdat, path_vars, savevar=True)
 
 # ---------------------------------------------------------------------------------------
 # - Zonal maximum of ocean depth
-try:    HT_auxgrd_xmax = utils_misc.loadvar('variables/HT_auxgrd_xmax') 	# load from file
-except: HT_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'T', savevar=True)
-try:    HT_mgrd_xmax = utils_misc.loadvar('variables/HT_mgrd_xmax') 	        # load from file
-except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', savevar=True)
-try:    HU_auxgrd_xmax = utils_misc.loadvar('variables/HU_auxgrd_xmax') 	# load from file
-except: HU_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'U', savevar=True)
-try:    HU_mgrd_xmax = utils_misc.loadvar('variables/HU_mgrd_xmax') 	        # load from file
-except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', savevar=True)
+try:    HT_auxgrd_xmax = utils_misc.loadvar(path_vars+'HT_auxgrd_xmax') 	# load from file
+except: HT_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'T', path_vars, savevar=True)
+try:    HT_mgrd_xmax = utils_misc.loadvar(path_vars+'HT_mgrd_xmax') 	        # load from file
+except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', path_vars, savevar=True)
+try:    HU_auxgrd_xmax = utils_misc.loadvar(path_vars+'HU_auxgrd_xmax') 	# load from file
+except: HU_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'U', path_vars, savevar=True)
+try:    HU_mgrd_xmax = utils_misc.loadvar(path_vars+'HU_mgrd_xmax') 	        # load from file
+except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_vars, savevar=True)
 
 # #######################################################################################
 #  PLOTTING

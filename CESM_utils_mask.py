@@ -76,7 +76,7 @@ def vars2speedup(lat_auxgrd, ncdat):
 # --------------------------------------------------
 # generate mask_auxgrd, a mask for grid-overlay
 # --------------------------------------------------
-def gen_mask_grd_overlay_lat(lat_auxgrd, ncdat, savevar=True):
+def gen_mask_grd_overlay_lat(lat_auxgrd, ncdat, path_vars, savevar=True):
     ''' Boolean of size (nlatAUXgrid, nlatMODELgrid, nlonMODELgrid)
         It is True where latitudes of auxillary and model grid lie in the same box. 
     '''
@@ -85,7 +85,7 @@ def gen_mask_grd_overlay_lat(lat_auxgrd, ncdat, savevar=True):
     mask_auxgrd = np.zeros([len(lat_auxgrd), len(ncdat.nlat), len(ncdat.nlon)],dtype=bool) 	# pre-allocation as False
 
     for n in iter_lat_auxgrd:
-      utils_misc.ProgBar('step', barlen=30, step=n, nsteps=len(iter_lat_auxgrd)) 	# initialize and update progress bar
+      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=120) 	# initialize and update progress bar
       for j in iter_lat_mgrdT:
         for i in iter_lon_mgrdT:
           if lat_auxgrd[n] <= lat_mgrdT[j,i] < lat_auxgrd[n+1]:
@@ -93,14 +93,14 @@ def gen_mask_grd_overlay_lat(lat_auxgrd, ncdat, savevar=True):
     utils_misc.ProgBar('done')
 
     if savevar == True:                                         # save to file
-      utils_misc.savevar(mask_auxgrd, 'variables/mask_auxgrd')
+      utils_misc.savevar(mask_auxgrd, path_vars+'mask_auxgrd')
 
     return(mask_auxgrd)
 
 # --------------------------------------------------
 # generate iter_maskcombo
 # --------------------------------------------------
-def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, savevar=True):
+def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars, savevar=True):
     ''' Array of size (nlatAUXgrid, nlatMODELgrid)
         Each element is a np.Array containing longitude-indices (i) where 
 	both, mask_auxgrd and the region mask on the model grid are True. 
@@ -113,13 +113,13 @@ def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, savevar=True):
     iter_maskcombo = np.zeros([len(lat_auxgrd), len(ncdat.nlat)], dtype=object)  
 
     for n in iter_lat_auxgrd:
-      utils_misc.ProgBar('step', barlen=30, step=n, nsteps=len(iter_lat_auxgrd)) 	# initialize and update progress bar	
+      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=120) 	# initialize and update progress bar	
       for j in iter_lat_mgrdT:
         iter_maskcombo[n,j] = np.where((mask_auxgrd[n,j,:]) & (mask_modgrd[j,:]>=6))[0]
     utils_misc.ProgBar('done')
 
     if savevar == True:                                         # save to file
-      utils_misc.savevar(iter_maskcombo, 'variables/iter_maskcombo')
+      utils_misc.savevar(iter_maskcombo, path_vars+'iter_maskcombo')
 
     return(iter_maskcombo)
 
@@ -139,7 +139,7 @@ def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, savevar=True):
 # --------------------------------------------------
 # generate maxiter_depth, an array for seafloor detection on model grid
 # --------------------------------------------------
-def gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, ncdat, savevar=True):
+def gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, ncdat, path_vars, savevar=True):
     ''' Array of size (nlatMODELgrid, nlonMODELgrid)
         It contains the indices of maximal depth (model T-grid) in order to stop k-iteration at the seafloor
      
@@ -156,14 +156,14 @@ def gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, ncdat, savevar=True):
     maxiter_depth = np.zeros([len(ncdat.nlat), len(ncdat.nlon)], dtype=object)
 
     for j in iter_lat_mgrdT:
-      utils_misc.ProgBar('step', barlen=32, step=j, nsteps=len(iter_lat_mgrdT))
+      utils_misc.ProgBar('step', step=j, nsteps=len(iter_lat_mgrdT))
       for i in iter_lon_mgrdT:
         try:    maxiter_depth[j,i] = np.where(z_w_auxgrd <= HT[j,i])[-1][-1] 	# index of maximal depth at j,i
         except: maxiter_depth[j,i] = np.array([])
     utils_misc.ProgBar('done')
 
     if savevar == True:                                         # save to file
-      utils_misc.savevar(maxiter_depth, 'variables/maxiter_depth')
+      utils_misc.savevar(maxiter_depth, path_vars+'maxiter_depth')
 
     return(maxiter_depth)
 
@@ -173,7 +173,7 @@ def gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, ncdat, savevar=True):
 # =======================================================================================
 
 # ...for model grid
-def calc_H_mgrd_xmax(ncdat, TorUgrid, savevar=True):
+def calc_H_mgrd_xmax(ncdat, TorUgrid, path_vars, savevar=True):
     if TorUgrid == 'T':
       Hm = utils_mask.mask_ATLANTIC(ncdat.HT, ncdat.REGION_MASK) # mask Atlantic
       fname = 'HT_mgrd_xmax'
@@ -183,17 +183,17 @@ def calc_H_mgrd_xmax(ncdat, TorUgrid, savevar=True):
 
     H_mgrd_xmax = Hm.max(dim='nlon')    # find max along longitudes
     if savevar == True:                 # save to file
-      utils_misc.savevar(H_mgrd_xmax, 'variables/' + fname) 
+      utils_misc.savevar(H_mgrd_xmax, path_vars + fname) 
     return(H_mgrd_xmax)
 
 # ...for auxillary grid
-def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, savevar=True):
+def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, path_vars, savevar=True):
     # a few variables to speed up subsequent loops
     iter_lat_auxgrd = np.arange(len(lat_auxgrd))
     iter_lat_mgrd = np.arange(len(ncdat.nlat))
 
     # get i-iterators for auxgrd-Atlantic-mask
-    try:    iter_maskcombo = utils_misc.loadvar('variables/iter_maskcombo')     
+    try:    iter_maskcombo = utils_misc.loadvar(path_vars+'iter_maskcombo')     
     except: iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd)
 
     # find maximal depth along longitudes
@@ -206,13 +206,13 @@ def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, savevar=True):
 
     H_auxgrd_xmax = np.zeros(len(iter_lat_auxgrd))             # pre-allocation with zeros
     for n in iter_lat_auxgrd:
-      utils_misc.ProgBar('step', barlen=34, step=n, nsteps=len(iter_lat_auxgrd)) # initialize and update progress bar
+      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd)) # initialize and update progress bar
       for j in iter_lat_mgrd:
         for i in iter_maskcombo[n,j]:
           H_auxgrd_xmax[n] = np.nanmax([H_auxgrd_xmax[n], H[j,i]])
     utils_misc.ProgBar('done')
 
     if savevar == True:                                         # save to file
-      utils_misc.savevar(H_auxgrd_xmax, 'variables/'+fname)  
+      utils_misc.savevar(H_auxgrd_xmax, path_vars + fname)  
 
     return(H_auxgrd_xmax)
