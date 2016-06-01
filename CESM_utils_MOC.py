@@ -122,7 +122,7 @@ def get_auxgrd(ncdat, name):
 # ---------------------------------------------------------------------------------------
 # - zonal integration of Volume Transport along auxillary grid
 # ---------------------------------------------------------------------------------------
-def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, M, ncdat, do_normalize=True, path_vars, savevar=True):
+def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, M, ncdat, path_vars, do_normalize=True, savevar=True):
     '''
     Input:
      > lat_auxgrd               : vector with meridional auxillary grid
@@ -187,7 +187,7 @@ def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, M, ncdat, do_nor
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid
 # ---------------------------------------------------------------------------------------
-def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, Mxint, ncdat, do_normalize=True, path_vars, savevar=True):
+def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, Mxint, ncdat, path_vars, do_normalize=True, savevar=True):
     '''
     Input:
      > lat_auxgrd               : vector with meridional auxillary grid

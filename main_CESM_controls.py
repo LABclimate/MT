@@ -57,7 +57,7 @@ MOC_mgrd_W, MWxint_mgrd = utils_MOC.calc_MOC_mgrd('W', MW, do_normalize=True, du
 MOC_mgrd_V, MVxint_mgrd = utils_MOC.calc_MOC_mgrd('V', MV_projauxgrd, do_normalize=True, dump_Mxint=True)
 # ---------------------------------------------------------------------------------------
 # - Auxillary grid
-auxgrd_name = ['latMOCmodelEveryOther_z60', 'lateq80S90N_zeq60'][0]       # choose aux grid
+auxgrd_name = ['latMOCmodelEveryOther_zeq60', 'lateq80S90N_zeq60'][0]       # choose aux grid
 lat_auxgrd, z_t_auxgrd, z_w_top_auxgrd = utils_MOC.get_auxgrd(ncdat, auxgrd_name)
 path_vars = paths.get_path2var(auxgrd_name)
 utils_misc.checkdir(path_vars)
@@ -66,26 +66,26 @@ utils_misc.checkdir(path_vars)
 try:    MOC_auxgrd_W = utils_misc.loadvar(path_vars+'MOC_auxgrd_W') 		# load from file
 except:
   try:    MWxint_auxgrd = utils_misc.loadvar(path_vars+'MWxint_auxgrd')         # load from file
-  except: MWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW, ncdat, path_vars, savevar=True)
-  MOC_auxgrd_W = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint_auxgrd, ncdat, path_vars, savevar=True)
+  except: MWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW, ncdat, path_vars)
+  MOC_auxgrd_W = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint_auxgrd, ncdat, path_vars)
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid - VVEL (in Sv)
 try:    MOC_auxgrd_V = utils_misc.loadvar(path_vars+'MOC_auxgrd_V') 		# load from file
 except:
   try:    MVxint_auxgrd = utils_misc.loadvar(path_vars+'MVxint_auxgrd')         # load from file
-  except: MVxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MV_projauxgrd, ncdat, path_vars, savevar=True)
-  MOC_auxgrd_V = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MVxint_auxgrd, ncdat, path_vars, savevar=True)
+  except: MVxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MV_projauxgrd, ncdat, path_vars)
+  MOC_auxgrd_V = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_t_auxgrd, 'V', MVxint_auxgrd, ncdat, path_vars)
 
 # ---------------------------------------------------------------------------------------
 # - Zonal maximum of ocean depth
 try:    HT_auxgrd_xmax = utils_misc.loadvar(path_vars+'HT_auxgrd_xmax') 	# load from file
-except: HT_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'T', path_vars, savevar=True)
+except: HT_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'T', path_vars)
 try:    HT_mgrd_xmax = utils_misc.loadvar(path_vars+'HT_mgrd_xmax') 	        # load from file
-except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', path_vars, savevar=True)
+except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', path_vars)
 try:    HU_auxgrd_xmax = utils_misc.loadvar(path_vars+'HU_auxgrd_xmax') 	# load from file
-except: HU_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'U', path_vars, savevar=True)
+except: HU_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'U', path_vars)
 try:    HU_mgrd_xmax = utils_misc.loadvar(path_vars+'HU_mgrd_xmax') 	        # load from file
-except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_vars, savevar=True)
+except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_vars)
 
 # #######################################################################################
 #  PLOTTING

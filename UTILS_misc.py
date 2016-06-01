@@ -90,7 +90,7 @@ def savevar(var, filename):
 # --- add directory if unexistant
 def checkdir(dirname):
     if os.path.isdir(dirname)==False:
-      mkdir(path_vars)
+      os.mkdir(path_vars)
       print(' -> created new directory:' + path_vars)
 
 
