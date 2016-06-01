@@ -11,6 +11,8 @@
 # - ProgBar()
 # - loadvar()
 # - savevar()
+# - checkdir()
+# - primefactors()
 #################################
 # please log your changes below
 #################################
@@ -90,7 +92,7 @@ def savevar(var, filename):
 # --- add directory if unexistant
 def checkdir(dirname):
     if os.path.isdir(dirname)==False:
-      os.mkdir(path_vars)
+      os.mkdir(path_vars) # if this fails --> create the folder on your own!
       print(' -> created new directory:' + path_vars)
 
 

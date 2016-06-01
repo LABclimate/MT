@@ -10,6 +10,7 @@
 #################################
 # - mask_ATLANTIC()
 # - vars2speedup()
+# - gen_auxgrd()
 # - gen_mask_grd_overlay_lat()
 # - gen_iter_maskcombo()
 # - get_maxiter_depth()
@@ -33,6 +34,7 @@
 #                                         created calc_HT_mgrd_xmax()
 #                                         created calc_HT_auxgrd_xmax()
 # 31-Mai-2016 - buerki@climate.unibe.ch : in gen_maxiter_depth() changed '<' back to '<='
+# 01-Jun-2016 - buerki@climate.unibe.ch : migrated gen_auxgrd from utils_MOC to utils_mask
 #################################
 
 import numpy as np
@@ -62,7 +64,7 @@ def mask_ATLANTIC(varin, mask, outputformat='xr'):
 
 
 # =======================================================================================
-# generate masks and mask-like iterators that we use in MOC-functions
+# generate auxillary grid and related masks and mask-like iterators 
 # =======================================================================================
 
 # write some variables to numpy-arrays in order to speed up subsequent loops
@@ -72,6 +74,33 @@ def vars2speedup(lat_auxgrd, ncdat):
     iter_lat_mgrdT = np.arange(len(ncdat.nlat))
     iter_lon_mgrdT = np.array(ncdat.nlon) 			# in normal order!!
     return(lat_mgrdT, iter_lat_auxgrd, iter_lat_mgrdT, iter_lon_mgrdT)
+
+# --------------------------------------------------
+# - generate auxillary grid
+# --------------------------------------------------
+def gen_auxgrd(ncdat, name):
+    # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
+    if name == 'lat170eq80S90N_zeq60':
+      lat = np.linspace(-80, 90, 170)  	# latitudes
+      z_t = ncdat.z_t.values 		# depth levels
+      z_w_top = ncdat.z_w_top.values 	# depth levels
+    # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
+    elif name == 'lat340eq80S90N_zeq60':    
+      lat = np.linspace(-80, 90, 340)  	# latitudes
+      z_t = ncdat.z_t.values 		# depth levels
+      z_w_top = ncdat.z_w_top.values 	# depth levels
+    # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
+    elif name == 'lat198model_zeq60':
+      lat = ncdat.MOC.lat_aux_grid[::2] # latitudes
+      z_t = ncdat.z_t.values 		# depth levels
+      z_w_top = ncdat.z_w_top.values 	# depth levels
+    # lat: as in ncdat.lat_aux_grid | z: 60 boxes
+    elif name == 'lat395model_zeq60':
+      lat = ncdat.MOC.lat_aux_grid      # latitudes
+      z_t = ncdat.z_t.values 		# depth levels
+      z_w_top = ncdat.z_w_top.values 	# depth levels
+
+    return(lat, z_t, z_w_top)
 
 # --------------------------------------------------
 # generate mask_auxgrd, a mask for grid-overlay
@@ -85,7 +114,7 @@ def gen_mask_grd_overlay_lat(lat_auxgrd, ncdat, path_vars, savevar=True):
     mask_auxgrd = np.zeros([len(lat_auxgrd), len(ncdat.nlat), len(ncdat.nlon)],dtype=bool) 	# pre-allocation as False
 
     for n in iter_lat_auxgrd:
-      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=120) 	# initialize and update progress bar
+      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60) 	# initialize and update progress bar
       for j in iter_lat_mgrdT:
         for i in iter_lon_mgrdT:
           if lat_auxgrd[n] <= lat_mgrdT[j,i] < lat_auxgrd[n+1]:
@@ -113,7 +142,7 @@ def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars, savevar=True):
     iter_maskcombo = np.zeros([len(lat_auxgrd), len(ncdat.nlat)], dtype=object)  
 
     for n in iter_lat_auxgrd:
-      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=120) 	# initialize and update progress bar	
+      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60) 	# initialize and update progress bar	
       for j in iter_lat_mgrdT:
         iter_maskcombo[n,j] = np.where((mask_auxgrd[n,j,:]) & (mask_modgrd[j,:]>=6))[0]
     utils_misc.ProgBar('done')

@@ -37,6 +37,10 @@ ncdat = xr.open_dataset(fpath+fname, decode_times=False)
 T = ncdat.TEMP.mean(dim='time').isel(z_t=0)
 T = utils_mask.mask_ATLANTIC(T, ncdat.REGION_MASK)
 
+rho = utils_mask.mask_ATLANTIC(ncdat.RHO.mean(dim='time'), ncdat.REGION_MASK)
+#rho = rho.isel(nlon=0)
+rho = rho.mean(dim='nlon')
+
 # =======================================================================================
 #  Streamfunctions
 # =======================================================================================
@@ -47,7 +51,7 @@ T = utils_mask.mask_ATLANTIC(T, ncdat.REGION_MASK)
 '''
 # ---------------------------------------------------------------------------------------
 # - Volume transports (in Sv)
-MV_mgrd = utils_BSF.calc_MV(ncdat) 					  # on model grid
+MV_mgrd = utils_BSF.calc_MV(ncdat)					  # on model grid
 MV_projauxgrd = utils_conv.project_on_auxgrd(MV_mgrd, ncdat.ANGLE.values) # on auxillary grid
 MW = utils_MOC.calc_MW(ncdat)					          # valid on both grids
 # ---------------------------------------------------------------------------------------
@@ -57,8 +61,8 @@ MOC_mgrd_W, MWxint_mgrd = utils_MOC.calc_MOC_mgrd('W', MW, do_normalize=True, du
 MOC_mgrd_V, MVxint_mgrd = utils_MOC.calc_MOC_mgrd('V', MV_projauxgrd, do_normalize=True, dump_Mxint=True)
 # ---------------------------------------------------------------------------------------
 # - Auxillary grid
-auxgrd_name = ['latMOCmodelEveryOther_zeq60', 'lateq80S90N_zeq60'][0]       # choose aux grid
-lat_auxgrd, z_t_auxgrd, z_w_top_auxgrd = utils_MOC.get_auxgrd(ncdat, auxgrd_name)
+auxgrd_name = ['lat395model_zeq60', 'lat198model_zeq60', 'lat170eq80S90N_zeq60', 'lat340eq80S90N_zeq60'][0]       # choose aux grid
+lat_auxgrd, z_t_auxgrd, z_w_top_auxgrd = utils_mask.gen_auxgrd(ncdat, auxgrd_name)
 path_vars = paths.get_path2var(auxgrd_name)
 utils_misc.checkdir(path_vars)
 # ---------------------------------------------------------------------------------------
@@ -174,6 +178,11 @@ df(fig, 'testfigures/seafloor')
 fig, map = utils_plt.pcolor_basemap(T.roll(nlon=54), 'T', nlevels=100)
 plt.title('Temperature')
 utils_plt.print2pdf(fig, 'testfigures/temp')
+
+# Density
+fig, ax = utils_plt.plot_slice(ncdat.TLAT[:,0], ncdat.z_t, rho, nlevels=100, plttype='contourf', min = 1.02, max=1.03)
+plt.title('Density')
+utils_plt.print2pdf(fig, 'density/temp')
 
 # MW
 fig, map = utils_plt.pcolor_basemap(MW.roll(nlon=54).mean(dim='z_w_top'), 'T', nlevels=100,)

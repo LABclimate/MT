@@ -43,8 +43,14 @@ path_ctr_2deg = dict(
 # Directories for Variables named by auxillary grid
 def get_path2var(auxgrd_name):
     # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
-    if auxgrd_name == 'lateq80S90N_zeq60': 
-        return('vars_lateq80S90N_zeq60/')
+    if auxgrd_name == 'lat170eq80S90N_zeq60': 
+        return('vars_lat170eq80S90N_zeq60/')
+    # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
+    elif auxgrd_name == 'lat340eq80S90N_zeq60': 
+        return('vars_lat340eq80S90N_zeq60/')
+    # lat: as in ncdat.lat_aux_grid | z: 60 boxes
+    elif auxgrd_name == 'lat395model_zeq60':
+        return('vars_lat395model_zeq60/')
     # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
-    elif auxgrd_name == 'latMOCmodelEveryOther_zeq60':
-        return('vars_latMOCmodelEveryOther_zeq60/')
+    elif auxgrd_name == 'lat198model_zeq60':
+        return('vars_lat198model_zeq60/')

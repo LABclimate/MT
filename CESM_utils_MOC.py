@@ -11,7 +11,6 @@
 #################################
 # - calc_MW()
 # - calc_MOC_model_grid()
-# - get_default_auxgrd()
 # - calc_Mxint_auxgrd()
 # - calc_MOC_auxgrd()
 #################################
@@ -87,10 +86,9 @@ ate at high latitudes!
 # - MOC on auxillary grid
 # =======================================================================================
 '''
-    This collection contains 3 functions, which :
-     A: returns a default for an auxillary grid. 
-     B: integration of vertical(MW)/meridional(MV) transport in zonal direction.
-     C: integration of the result of B in meridional(MW)/vertical(MV) direction.
+    This collection contains 2 functions:
+     A: integration of vertical(MW)/meridional(MV) transport in zonal direction.
+     B: integration of the result of B in meridional(MW)/vertical(MV) direction.
 
     Comments:
     =========
@@ -102,23 +100,6 @@ ate at high latitudes!
     j: latitude on model-grid, 
     i: longitude on model-grid and k: depth on both grids
 '''
-# ---------------------------------------------------------------------------------------
-# - get auxillary grid
-# ---------------------------------------------------------------------------------------
-def get_auxgrd(ncdat, name):
-    # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
-    if name == 'lateq80S90N_zeq60':
-      lat = np.linspace(-80, 90, 170)  	# latitudes
-      z_t = ncdat.z_t.values 		# depth levels
-      z_w_top = ncdat.z_w_top.values 	# depth levels
-    # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
-    elif name == 'latMOCmodelEveryOther_zeq60':
-      lat = ncdat.MOC.lat_aux_grid[::2]  	# latitudes
-      z_t = ncdat.z_t.values 		# depth levels
-      z_w_top = ncdat.z_w_top.values 	# depth levels
-
-    return(lat, z_t, z_w_top)
-
 # ---------------------------------------------------------------------------------------
 # - zonal integration of Volume Transport along auxillary grid
 # ---------------------------------------------------------------------------------------
@@ -161,7 +142,7 @@ def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, M, ncdat, path_v
     print('> zonal integration')
     Mxint = np.zeros([len(z_auxgrd), len(lat_auxgrd)])  	# pre-allocation with zeros (np-array like for speed)
     for n in iter_lat_auxgrd:
-      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=120)# initialize and update progress bar
+      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)# initialize and update progress bar
       for j in iter_lat_M:
 #        if any(mask_auxgrd[n,j,:]):						# to speed up the code
           for i in iter_maskcombo[n,j]: 					# limit zonal integration to Atlantic and grid-overlay
@@ -212,7 +193,7 @@ def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, Mxint, ncdat, path
       # meridional integration along aux grid
       print('> meridional integration')
       for n in iter_lat_auxgrd[1:]:
-        utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), forceinit=True, minbarlen=120)      # initialize and update progress bar
+        utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), forceinit=True, minbarlen=60)      # initialize and update progress bar
         MOC[:,n] = np.nansum([MOC[:,n], MOC[:,n-1]], axis=0) 	        # meridional integration
       utils_misc.ProgBar('done') 					# terminate progress bar
 
@@ -223,7 +204,7 @@ def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, velocity_component, Mxint, ncdat, path
       # vertical integration along aux grid
       print('> vertical integration')
       for k in iter_z_auxgrd[1:]:
-        utils_misc.ProgBar('step', step=k, nsteps=len(iter_z_auxgrd), forceinit=True, minbarlen=120)        # initialize and update progress bar
+        utils_misc.ProgBar('step', step=k, nsteps=len(iter_z_auxgrd), forceinit=True, minbarlen=60)        # initialize and update progress bar
         MOC[k,:] = np.nansum([MOC[k,:], MOC[k-1,:]], axis=0) 		# meridional integration
       utils_misc.ProgBar('done') 					# terminate progress bar
 

@@ -54,10 +54,10 @@ def pcolor_basemap_new(var, nlevels=100, mappingtoolbox='basemap', proj='ortho')
     return(fig, map)
 
 # wrapper to plot pcolorplot of any lat-lon variable maps using Basemap
-def pcolor_basemap(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='ortho'):
+def pcolor_basemap(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='ortho', min = [], max = []):
     # colormap
-    min = np.floor(np.nanmin(var)) # minimum value of varin
-    max = np.ceil(np.nanmax(var))  # maximum value of varin
+    if min == []:   min = np.floor(np.nanmin(var)) # minimum value of varin
+    if max == []:   max = np.ceil(np.nanmax(var))  # maximum value of varin
     cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis())
     # add cyclic border (to prevent gap in pcolor plot)
     var = utils_conv.add_cyclic(var)
@@ -78,10 +78,10 @@ def pcolor_basemap(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='o
     return(fig, map)
 
 
-def plot_slice(xvar, yvar, var, nlevels=100, plttype='contourf'):
-    #colormap
-    min = np.floor(np.nanmin(var)) # minimum value of varin
-    max = np.ceil(np.nanmax(var))  # maximum value of varin
+def plot_slice(xvar, yvar, var, nlevels=100, plttype='contourf', min = [], max = []):
+    #colormap    
+    if min == []:   min = np.floor(np.nanmin(var)) # minimum value of varin
+    if max == []:   max = np.ceil(np.nanmax(var))  # maximum value of varin
     cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis())
     # draw plot in new figure
     fig = plt.figure()
