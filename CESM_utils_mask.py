@@ -81,24 +81,24 @@ def vars2speedup(lat_auxgrd, ncdat):
 def gen_auxgrd(ncdat, name):
     # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
     if name == 'lat170eq80S90N_zeq60':
-      lat = np.linspace(-80, 90, 170)  	# latitudes
-      z_t = ncdat.z_t.values 		# depth levels
-      z_w_top = ncdat.z_w_top.values 	# depth levels
+      lat = np.linspace(-80, 90, 170)  	        # latitudes
+      z_t = ncdat.z_t.values 		        # depth levels
+      z_w_top = ncdat.z_w_top.values 	        # depth levels
     # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
     elif name == 'lat340eq80S90N_zeq60':    
-      lat = np.linspace(-80, 90, 340)  	# latitudes
-      z_t = ncdat.z_t.values 		# depth levels
-      z_w_top = ncdat.z_w_top.values 	# depth levels
+      lat = np.linspace(-80, 90, 340)  	        # latitudes
+      z_t = ncdat.z_t.values 		        # depth levels
+      z_w_top = ncdat.z_w_top.values 	        # depth levels
     # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
     elif name == 'lat198model_zeq60':
-      lat = ncdat.MOC.lat_aux_grid[::2] # latitudes
-      z_t = ncdat.z_t.values 		# depth levels
-      z_w_top = ncdat.z_w_top.values 	# depth levels
+      lat = ncdat.MOC.lat_aux_grid[::2].values  # latitudes
+      z_t = ncdat.z_t.values 		        # depth levels
+      z_w_top = ncdat.z_w_top.values 	        # depth levels
     # lat: as in ncdat.lat_aux_grid | z: 60 boxes
     elif name == 'lat395model_zeq60':
-      lat = ncdat.MOC.lat_aux_grid      # latitudes
-      z_t = ncdat.z_t.values 		# depth levels
-      z_w_top = ncdat.z_w_top.values 	# depth levels
+      lat = ncdat.MOC.lat_aux_grid.values       # latitudes
+      z_t = ncdat.z_t.values 		        # depth levels
+      z_w_top = ncdat.z_w_top.values 	        # depth levels
 
     return(lat, z_t, z_w_top)
 
@@ -114,7 +114,7 @@ def gen_mask_grd_overlay_lat(lat_auxgrd, ncdat, path_vars, savevar=True):
     mask_auxgrd = np.zeros([len(lat_auxgrd), len(ncdat.nlat), len(ncdat.nlon)],dtype=bool) 	# pre-allocation as False
 
     for n in iter_lat_auxgrd:
-      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60) 	# initialize and update progress bar
+      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
       for j in iter_lat_mgrdT:
         for i in iter_lon_mgrdT:
           if lat_auxgrd[n] <= lat_mgrdT[j,i] < lat_auxgrd[n+1]:
@@ -142,7 +142,7 @@ def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars, savevar=True):
     iter_maskcombo = np.zeros([len(lat_auxgrd), len(ncdat.nlat)], dtype=object)  
 
     for n in iter_lat_auxgrd:
-      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60) 	# initialize and update progress bar	
+      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
       for j in iter_lat_mgrdT:
         iter_maskcombo[n,j] = np.where((mask_auxgrd[n,j,:]) & (mask_modgrd[j,:]>=6))[0]
     utils_misc.ProgBar('done')
@@ -235,7 +235,7 @@ def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, path_vars, savevar=True):
 
     H_auxgrd_xmax = np.zeros(len(iter_lat_auxgrd))             # pre-allocation with zeros
     for n in iter_lat_auxgrd:
-      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd)) # initialize and update progress bar
+      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd))
       for j in iter_lat_mgrd:
         for i in iter_maskcombo[n,j]:
           H_auxgrd_xmax[n] = np.nanmax([H_auxgrd_xmax[n], H[j,i]])
