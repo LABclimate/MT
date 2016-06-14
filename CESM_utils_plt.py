@@ -30,15 +30,18 @@ import numpy as np
 import matplotlib as ml
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
+from mpl_toolkits.axes_grid1 import AxesGrid
 from matplotlib.colors import from_levels_and_colors  # used for viridis colormap
 from matplotlib.backends.backend_pdf import PdfPages
 import CESM_utils_mask as utils_mask
 import CESM_utils_plt as utils_plt
 import CESM_utils_conv as utils_conv
 
+
 # general styling
 plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
+
 
 # wrapper to plot pcolorplot of any lat-lon variable maps using Basemap
 def pcolor_basemap_new(var, nlevels=100, mappingtoolbox='basemap', proj='ortho'):    
@@ -53,12 +56,15 @@ def pcolor_basemap_new(var, nlevels=100, mappingtoolbox='basemap', proj='ortho')
 	fig, map = True, True#TODO
     return(fig, map)
 
+
 # wrapper to plot pcolorplot of any lat-lon variable maps using Basemap
 def pcolor_basemap(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='ortho', min = [], max = []):
     # colormap
     if min == []:   min = np.floor(np.nanmin(var)) # minimum value of varin
     if max == []:   max = np.ceil(np.nanmax(var))  # maximum value of varin
-    cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis())
+     #cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis())
+    cmap = utils_plt.shiftedColorMap(ml.cm.seismic, midpoint=1-1/((max-min)/max), name='shifted') # shifted blue white red
+
     # add cyclic border (to prevent gap in pcolor plot)
     var = utils_conv.add_cyclic(var)
     # choose U or T grid
@@ -71,22 +77,24 @@ def pcolor_basemap(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='o
     # draw plot in new figure
     if mappingtoolbox == 'basemap':
         fig, map = utils_plt.emptyBasemapFig(proj)
-        c1 = map.pcolor(xvar,yvar,var.values,latlon=True, cmap=cmap,norm=norm, rasterized=True)
+        c1 = map.pcolor(xvar,yvar,var.values,latlon=True, cmap=cmap, rasterized=True)
         map.colorbar()
     elif mappingtoolbox == 'cartopy':
         fig, map = True, True#TODO
     return(fig, map)
 
-
-def plot_slice(xvar, yvar, var, nlevels=100, plttype='contourf', min = [], max = []):
+def plot_slice(xvar, yvar, var, nlevels=100, plttype='contour', min = [], max = []):
     #colormap    
     if min == []:   min = np.floor(np.nanmin(var)) # minimum value of varin
     if max == []:   max = np.ceil(np.nanmax(var))  # maximum value of varin
-    cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis())
+     #cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis()) # viridis
+    cmap = utils_plt.shiftedColorMap(ml.cm.seismic, midpoint=1-1/((max-min)/max), name='shifted') # shifted blue white red
     # draw plot in new figure
     fig = plt.figure()
     if plttype == 'contourf':
         ax = plt.contourf(xvar, yvar, var, cmap=cmap, levels=np.linspace(min, max, 100))
+    elif plttype == 'contour':
+        ax = plt.contour(xvar, yvar, var, cmap=cmap, levels=np.linspace(min, max, 100))
     elif plttype == 'pcolor':
 	ax = plt.pcolor(xvar, yvar, var, cmap=cmap)
     plt.colorbar(ax)
@@ -98,9 +106,9 @@ def plot_slice(xvar, yvar, var, nlevels=100, plttype='contourf', min = [], max =
    # if yticks:
    #     plt.yticks(yticks[[int(i) for i in plt.yticks()[0][:-1]]])
 
-
     plt.text(-10,600000, 'max: {}, min: {}'.format(round(np.nanmax(var),2), round(np.nanmin(var),2)))
     return(fig, ax)
+
 
 # print figure to pdf
 def print2pdf(fig, filename):
@@ -147,6 +155,60 @@ def get_cmap(min, max, nlevels, scheme):
     return cmap, norm
 
 
+# blue-white-red colormap centered
+def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
+    '''
+    source: http://stackoverflow.com/questions/7404116/defining-the-midpoint-of-a-colormap-in-matplotlib
+    
+    Function to offset the "center" of a colormap. Useful for
+    data with a negative min and positive max and you want the
+    middle of the colormap's dynamic range to be at zero
+
+    Input
+    -----
+      cmap : The matplotlib colormap to be altered
+      start : Offset from lowest point in the colormap's range.
+          Defaults to 0.0 (no lower ofset). Should be between
+          0.0 and `midpoint`.
+      midpoint : The new center of the colormap. Defaults to 
+          0.5 (no shift). Should be between 0.0 and 1.0. In
+          general, this should be  1 - vmax/(vmax + abs(vmin))
+          For example if your data range from -15.0 to +5.0 and
+          you want the center of the colormap at 0.0, `midpoint`
+          should be set to  1 - 5/(5 + 15)) or 0.75
+      stop : Offset from highets point in the colormap's range.
+          Defaults to 1.0 (no upper ofset). Should be between
+          `midpoint` and 1.0.
+    '''
+    cdict = {
+        'red': [],
+        'green': [],
+        'blue': [],
+        'alpha': []
+    }
+
+    # regular index to compute the colors
+    reg_index = np.linspace(start, stop, 257)
+
+    # shifted index to match the data
+    shift_index = np.hstack([
+        np.linspace(0.0, midpoint, 128, endpoint=False), 
+        np.linspace(midpoint, 1.0, 129, endpoint=True)
+    ])
+
+    for ri, si in zip(reg_index, shift_index):
+        r, g, b, a = cmap(ri)
+
+        cdict['red'].append((si, r, r))
+        cdict['green'].append((si, g, g))
+        cdict['blue'].append((si, b, b))
+        cdict['alpha'].append((si, a, a))
+
+    newcmap = ml.colors.LinearSegmentedColormap(name, cdict)
+    plt.register_cmap(cmap=newcmap)
+
+    return newcmap
+    
 # The viridis colormap will be the default in matplotlib 2.0
 def get_viridis():
     return(ml.colors.ListedColormap([[0.267004, 0.004874, 0.329415],

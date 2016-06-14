@@ -54,9 +54,11 @@ def calc_dMOC_mgrd(vel_comp, M, PD, PD_bins, do_norm=True, dump_dMxint=False):
     utils_misc.ProgBar('done')
 
     # meridional integration along model grid
-    dMOC = np.copy(dMxint)                      # pre-allocation with dMxint
-    for j in np.arange(1,dMxint.shape[1]): 	# meridional integration
+    dMOC = np.copy(dMxint)                          # pre-allocation with dMxint
+    for j in np.arange(1,dMxint.shape[1]): 	    # meridional integration S --> N
       dMOC[:,j] = dMOC[:,j] + dMOC[:,j-1]
+#    for j in np.arange(0,dMxint.shape[1]-1)[::-1]:  # meridional integration N --> S
+#      dMOC[:,j] = dMOC[:,j] + dMOC[:,j+1]
 
     # normalisation relative to North (shift values such that zero at northern boundary)
     if do_norm == True:
