@@ -9,10 +9,12 @@
 #################################
 # contained functions:
 #################################
-# - pcolor_basemap()
+# - plot_BSF()
+# - plot_MOC()
 #   - emptyBasemapFig()
-#   - get_cmap()
-#     - get_viridis()
+#   - shiftCMap()
+#   - get_cmap()            # not used anymore
+#     - get_viridis()       # not used anymore
 # - print2pdf()
 #################################
 # please log your changes below
@@ -24,6 +26,8 @@
 # 30-Apr-2016 - buerki@climate.unibe.ch : renamed makeBasemapFig() to emptyBasemapFig()
 #                                         added print2pdf()
 #                                         added pcolor_basemap()
+# 14-Jun-2016 - buerki@climate.unibe.ch : major renaming of function names
+#                                         added shiftCMap()
 #################################
 
 import numpy as np
@@ -42,28 +46,13 @@ import CESM_utils_conv as utils_conv
 plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 
-
 # wrapper to plot pcolorplot of any lat-lon variable maps using Basemap
-def pcolor_basemap_new(var, nlevels=100, mappingtoolbox='basemap', proj='ortho'):    
-    # add cyclic border (to prevent gap in pcolor plot)
-    var = utils_conv.add_cyclic(var)
-    # draw plot in new figure
-    if mappingtoolbox == 'basemap':
-        fig, map = utils_plt.emptyBasemapFig(proj)
-        c1 = map.pcolor(var.TLONG.values,var.TLAT.values,var.values,latlon=True, cmap='viridis', rasterized=True)
-        cb = map.colorbar()
-    elif mappingtoolbox == 'cartopy':
-	fig, map = True, True#TODO
-    return(fig, map)
-
-
-# wrapper to plot pcolorplot of any lat-lon variable maps using Basemap
-def pcolor_basemap(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='ortho', min = [], max = []):
+def plot_BSF(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='ortho', min = [], max = []):
     # colormap
     if min == []:   min = np.floor(np.nanmin(var)) # minimum value of varin
     if max == []:   max = np.ceil(np.nanmax(var))  # maximum value of varin
-     #cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis())
-    cmap = utils_plt.shiftedColorMap(ml.cm.seismic, midpoint=1-1/((max-min)/max), name='shifted') # shifted blue white red
+    #cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis()) # viridis
+    cmap = utils_plt.shiftCMap(ml.cm.seismic, midpoint=1-max/(max-min), name='shifted') # shifted blue white red
 
     # add cyclic border (to prevent gap in pcolor plot)
     var = utils_conv.add_cyclic(var)
@@ -83,12 +72,12 @@ def pcolor_basemap(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='o
         fig, map = True, True#TODO
     return(fig, map)
 
-def plot_slice(xvar, yvar, var, nlevels=100, plttype='contour', min = [], max = []):
+def plot_MOC(xvar, yvar, var, nlevels=100, plttype='contour', min = [], max = []):
     #colormap    
     if min == []:   min = np.floor(np.nanmin(var)) # minimum value of varin
     if max == []:   max = np.ceil(np.nanmax(var))  # maximum value of varin
      #cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis()) # viridis
-    cmap = utils_plt.shiftedColorMap(ml.cm.seismic, midpoint=1-1/((max-min)/max), name='shifted') # shifted blue white red
+    cmap = utils_plt.shiftCMap(ml.cm.seismic, midpoint=1-max/(max-min), name='shifted') # shifted blue white red
     # draw plot in new figure
     fig = plt.figure()
     if plttype == 'contourf':
@@ -137,6 +126,9 @@ def emptyBasemapFig(projection='ortho'):
     map.fillcontinents(color='DarkGray',lake_color='LightGray')
     return(fig, map)
 
+# =======================================================================================
+#  Color Maps
+# =======================================================================================
 
 # get_cmap interpolates the colormap on a discrete range.
 def get_cmap_old(min, max, step, scheme):
@@ -156,7 +148,7 @@ def get_cmap(min, max, nlevels, scheme):
 
 
 # blue-white-red colormap centered
-def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
+def shiftCMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
     '''
     source: http://stackoverflow.com/questions/7404116/defining-the-midpoint-of-a-colormap-in-matplotlib
     
@@ -208,6 +200,7 @@ def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
     plt.register_cmap(cmap=newcmap)
 
     return newcmap
+    
     
 # The viridis colormap will be the default in matplotlib 2.0
 def get_viridis():

@@ -101,13 +101,13 @@ except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_mgrd)
 plt.ion() # enable interactive mode
 
 # BSF on model grid
-fig, map = utils_plt.pcolor_basemap(BSF_mgrd, 'U', nlevels=100)
+fig, map = utils_plt.plot_BSF(BSF_mgrd, 'U', nlevels=100)
 plt.title('BSF mgrd on U grid')
 utils_plt.print2pdf(fig, 'testfigures/BSF_mgrd_U')
 
 # BSF on geographical grid calculated by model
 BSF_model = utils_mask.mask_ATLANTIC(ncdat.BSF.isel(time=0), ncdat.REGION_MASK)
-fig, map = utils_plt.pcolor_basemap(BSF_model, 'T', nlevels = 10)
+fig, map = utils_plt.plot_BSF(BSF_model, 'T', nlevels = 10)
 plt.title('BSF model on T grid')
 utils_plt.print2pdf(fig, 'testfigures/BSF_model_T')
 
@@ -133,7 +133,7 @@ dMOC_auxgrd_W = utils_dMOC.calc_dMOC_auxgrd(lat_auxgrd, PD_bins, 'W', dMWxint_au
 
 # dMOC_mgrd_W
 lat_mgrd = ncdat.TLAT.mean(dim='nlon') 				# should be changed I guess
-fig, ax = utils_plt.plot_slice(lat_mgrd, PD_bins[:-1], dMOC_mgrd_W, nlevels=10, plttype='contourf')
+fig, ax = utils_plt.plot_MOC(lat_mgrd, PD_bins[:-1], dMOC_mgrd_W, nlevels=10, plttype='contourf')
 plt.title('dMOC mgrd W')
 plt.xlim([-30,70])
 utils_plt.print2pdf(fig, 'testfigures/dMOC_mgrd_W')
@@ -143,7 +143,7 @@ utils_plt.print2pdf(fig, 'testfigures/dMOC_mgrd_W')
 
 # MOC_mgrd_W
 lat_mgrd = ncdat.TLAT.isel(nlon=0) 				# should be changed I guess
-fig, ax = utils_plt.plot_slice(lat_mgrd, ncdat.z_w_top, MOC_mgrd_W, nlevels=40, plttype='contourf')
+fig, ax = utils_plt.plot_MOC(lat_mgrd, ncdat.z_w_top, MOC_mgrd_W, nlevels=40, plttype='contourf')
 plt.plot(lat_mgrd,HT_mgrd_xmax) 				# plot seafloor #! it's the T-grid!!!
 plt.title('MOC mgrd W')
 plt.xlim([-36,90])
@@ -152,7 +152,7 @@ utils_plt.print2pdf(fig, 'testfigures/MOC_mgrd_W')
 '''
 # MOC_mgrd_V
 lat_mgrd = ncdat.TLAT.isel(nlon=0) 				# should be changed I guess
-fig, ax = utils_plt.plot_slice(lat_mgrd, ncdat.z_t, MOC_mgrd_V, nlevels=100, plttype='contourf')
+fig, ax = utils_plt.plot_MOC(lat_mgrd, ncdat.z_t, MOC_mgrd_V, nlevels=100, plttype='contourf')
 plt.plot(lat_mgrd,HT_mgrd_xmax)				# plot seafloor
 plt.title('MOC mgrd V')
 plt.xlim([-36,90])
@@ -162,7 +162,7 @@ utils_plt.print2pdf(fig, 'testfigures/MOC_mgrd_V')
 # MOC_model
 MOC_model = ncdat.MOC.isel(time=0, transport_reg=1, moc_comp=0)
 MOC_model = MOC_model - MOC_model[:,-1] # normalisation
-fig, ax = utils_plt.plot_slice(MOC_model.lat_aux_grid, MOC_model.moc_z, MOC_model, nlevels=40, plttype='contourf')
+fig, ax = utils_plt.plot_MOC(MOC_model.lat_aux_grid, MOC_model.moc_z, MOC_model, nlevels=40, plttype='contourf')
 plt.plot(lat_auxgrd,HT_auxgrd_xmax) 				# plot seafloor
 plt.title('MOC model')
 plt.xlim([-36,90])
@@ -170,7 +170,7 @@ plt.xlim([-36,90])
 
 '''
 # MWxint_auxgrd
-fig, ax = utils_plt.plot_slice(lat_auxgrd, z_w_top_auxgrd, MWxint_auxgrd, nlevels=100, plttype='contourf')
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MWxint_auxgrd, nlevels=100, plttype='contourf')
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.plot([0]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
@@ -178,7 +178,7 @@ plt.title('MWxint auxgrd')
 #utils_plt.print2pdf(fig, 'testfigures/MWxint_auxgrd')
 
 # MVxint_auxgrd
-fig, ax = utils_plt.plot_slice(lat_auxgrd, zT_auxgrd, MVxint_auxgrd, nlevels=100, plttype='contourf')
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, zT_auxgrd, MVxint_auxgrd, nlevels=100, plttype='contourf')
 plt.plot(lat_auxgrd,HU_auxgrd_xmax)  				# plot seafloor
 plt.plot([0]*len(MV_projauxgrd.z_t), MV_projauxgrd.z_t, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
@@ -187,7 +187,7 @@ plt.title('MVxint auxgrd')
 '''
 
 # MOC_auxgrd_W
-fig, ax = utils_plt.plot_slice(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W, nlevels=40, plttype='contourf')
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W, nlevels=40, plttype='contourf')
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.plot([0]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
@@ -195,7 +195,7 @@ plt.title('MOC auxgrd W')
 #utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_W')
 
 # MOC_auxgrd_V
-fig, ax = utils_plt.plot_slice(lat_auxgrd, zT_auxgrd, MOC_auxgrd_V, nlevels=100, plttype='contourf')
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, zT_auxgrd, MOC_auxgrd_V, nlevels=100, plttype='contourf')
 plt.plot(lat_auxgrd,HU_auxgrd_xmax)  				# plot seafloor
 plt.plot([0]*len(MV_projauxgrd.z_t), MV_projauxgrd.z_t, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
@@ -217,7 +217,7 @@ plt.title('Temperature')
 utils_plt.print2pdf(fig, 'testfigures/temp')
 
 # Density
-fig, ax = utils_plt.plot_slice(ncdat.TLAT[:,0], ncdat.z_t, rho, nlevels=100, plttype='contourf', min = 1.02, max=1.03)
+fig, ax = utils_plt.plot_MOC(ncdat.TLAT[:,0], ncdat.z_t, rho, nlevels=100, plttype='contourf', min = 1.02, max=1.03)
 plt.title('Density')
 utils_plt.print2pdf(fig, 'density/temp')
 
@@ -231,6 +231,6 @@ plt.figure()
 plt.pcolor(ncdat.ANGLE*180/np.pi)
 plt.contour(ncdat.REGION_MASK)
 
-fig, ax = utils_plt.plot_slice(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, MV_projauxgrd[:,:,59])
-fig, ax = utils_plt.plot_slice(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, ncdat.VVEL[0,:,:,59])
+fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, MV_projauxgrd[:,:,59])
+fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, ncdat.VVEL[0,:,:,59])
 
