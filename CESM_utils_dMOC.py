@@ -23,7 +23,6 @@ import pickle
 import CESM_utils_mask as utils_mask
 import UTILS_misc as utils_misc
 
-
 # =======================================================================================
 # - resampling data on equidistant grid by interpolation (along single dimension)
 # =======================================================================================
@@ -66,7 +65,7 @@ def resample_equidist(data_mgrd, mgrd, rsgrd):
 # =======================================================================================
 # - dMOC on model grid
 # =======================================================================================
-def calc_dMOC_mgrd_2(vel_comp, M, PD, PD_bins, do_norm=True, dump_dMxint=False):
+def calc_dMOC_mgrd(vel_comp, M, PD, PD_bins, do_norm=True, dump_dMxint=False):
     '''
     Input:
      > vel_comp         : either 'W' or  'V' | string
@@ -84,66 +83,6 @@ def calc_dMOC_mgrd_2(vel_comp, M, PD, PD_bins, do_norm=True, dump_dMxint=False):
     
     resample_equidist(data_mgrd, mgrd, rsgrd)
     
-# =======================================================================================
-# - dMOC on model grid
-# =======================================================================================
-def calc_dMOC_mgrd(vel_comp, M, PD, PD_bins, do_norm=True, dump_dMxint=False):
-    '''
-    Input:
-     > vel_comp           : either 'W' or  'V' | string
-     > M 			    : volume transport (MW or MV) | nparray of shape [nz, nlat, nlon]
-     > PD                 : potential density | nparray of shape [nz, nlat, nlon]
-     > PD_bins            : borders of PD-bins | nparray of shape [nPDbins+1]
-     > do_norm 		    : boolean
-     > dump_dMxint 	    : boolean
-    Output:
-     > dMxint             : zonally integrated volume transport of shape [nPDbins, nlat] | nparray
-     > dMOC               : dMOC of shape [nPDbins, nlat] | nparray
-    '''
-    iter_dens = np.arange(len(PD_bins)-1)
-    # pre-allocation
-    mask_PD_bins = np.zeros(shape=(len(PD_bins)-1, PD.shape[1]), dtype=object)
-    dMxint = np.zeros(shape=mask_PD_bins.shape)
-
-    # zonal integration and conversion on density axis
-    for l in iter_dens:
-      utils_misc.ProgBar('step', step=l, nsteps=len(PD_bins)-1)
-      for j in np.arange(PD.shape[1]):
-        mask_PD_bins[l,j] = np.where( (PD[:,j,:]>PD_bins[l]) & (PD[:,j,:]<PD_bins[l+1]) )
-        dMxint[l,j] = np.nansum(M[mask_PD_bins[l,j][0], j, mask_PD_bins[l,j][1]])
-    utils_misc.ProgBar('done')
-
-    # meridional integration along model grid
-    dMOC = np.copy(dMxint)                          # pre-allocation with dMxint
-    for j in np.arange(1,dMxint.shape[1]): 	    # meridional integration S --> N
-      dMOC[:,j] = dMOC[:,j] + dMOC[:,j-1]
-#    for j in np.arange(0,dMxint.shape[1]-1)[::-1]:  # meridional integration N --> S
-#      dMOC[:,j] = dMOC[:,j] + dMOC[:,j+1]
-
-    # normalisation relative to North (shift values such that zero at northern boundary)
-    if do_norm == True:
-      dMOC = dMOC - dMOC[:,-1]
-
-    '''
-    # write to xarray
-    dMOC = xr.DataArray(dMOC, attrs={'units':u'Sv'}, 
-            coords={'nsigma2':np.arange(len(PD_bins)-1), 'sigma2':PD_bins[:-1], 'nlat':np.arange(PD.shape[1]), 'TLAT':ncdat.TLAT.mean(dim='nlon')},  	#! mean is inappropriate at high latitudes!
-		            dims=['nsigma2', 'nlat'])
-
-    # naming xarrays
-    if vel_comp == 'W':
-      dMxint.name = 'MW zonally integrated'
-      dMOC.name = 'dMOC on model grid calculated from WVEL'
-    elif vel_comp == 'V':
-      dMxint.name = 'MV zonally integrated'
-      dMOC.name = 'dMOC on model grid calculated from VVEL'
-    '''
-
-    if dump_dMxint == True:
-      return(dMOC, dMxint)
-    else:
-      return(dMOC)
-
 # =======================================================================================
 # - dMOC on auxillary grid
 # =======================================================================================
