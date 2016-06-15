@@ -22,46 +22,7 @@ import xarray as xr
 import pickle
 import CESM_utils_mask as utils_mask
 import UTILS_misc as utils_misc
-
-# =======================================================================================
-# - resampling data on equidistant grid by interpolation (along single dimension)
-# =======================================================================================
-def resample_equidist(data_mgrd, mgrd, rsgrd):
-    # Assumptions:
-    #  > mgrd is monotonically increasing.
-    # Input:
-    #  > data_mgrd: data on old grid (model grid)
-    #  > mgrd:      old grid (model grid)
-    #  > rsgrd:     new grid (resampling grid)
-    # Output:
-    #  > data_rsgrd: data on new grid (resampled data)
-
-    # Check monotony of mgrd
-    if any(np.diff(mgrd)<0):
-      print('WARNING: mgrd is NOT monotonically increasing.')
-      return()
-
-    # Pre-allocation of data_rsgrd | if rsgrd is longer than mgrd fill tail with nans
-    data_rsgrd = np.ones(shape =rsgrd.shape*np.nan
-
-    # Resampling
-    idxm = 0                                    # index on mgrd
-    idxrs = 0                                   # index on rsgrd
-    while (idxrs < len(rsgrd)-1) & (rsgrd[idxrs] <= mgrd[-1]):
-      while (idxm < len(mgrd)-1) & (rsgrd[idxrs] > mgrd[idxm]): # jump to closest neighbour
-        idxm += 1
-      if idxm == 0:                             # border values
-        data_rsgrd[idxrs] = data_mgrd[idxm]
-      else:                                     # centre values
-        diff_1 = mgrd[idxm] - rsgrd[idxrs-1]      # > 0
-        diff_2 = mgrd[idxm] - rsgrd[idxrs]    # > 0
-        diff_total = diff_1 + diff_2            # = mgrd[idxm] - mgrd[idxm-1]
-        # linearly weighted interpolation
-        data_rsgrd[idxrs] = data_mgrd[idxm-1]*diff_2/diff_total + data_mgrd[idxm]*diff_1/diff_total
-      idxrs += 1
-    return(data_rsgrd)
-
-
+import CESM_utils_conv as utils_conv
 # =======================================================================================
 # - dMOC on model grid
 # =======================================================================================
@@ -81,8 +42,7 @@ def calc_dMOC_mgrd(vel_comp, M, PD, PD_bins, do_norm=True, dump_dMxint=False):
     
     # resample column-wise
     
-    resample_equidist(data_mgrd, mgrd, rsgrd)
-    
+    resample_equidist(M, mgrd, rsgrd)
 # =======================================================================================
 # - dMOC on auxillary grid
 # =======================================================================================
