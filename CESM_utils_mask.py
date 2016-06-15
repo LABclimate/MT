@@ -9,6 +9,7 @@
 # contained functions:
 #################################
 # - mask_ATLANTIC()
+# - return_ATLANTIC_boolean_mask()
 # - vars2speedup()
 # - gen_auxgrd()
 # - gen_mask_grd_overlay_lat()
@@ -35,6 +36,7 @@
 #                                         created calc_HT_auxgrd_xmax()
 # 31-Mai-2016 - buerki@climate.unibe.ch : in gen_maxiter_depth() changed '<' back to '<='
 # 01-Jun-2016 - buerki@climate.unibe.ch : migrated gen_auxgrd from utils_MOC to utils_mask
+# 15-Jun-2016 - buerki@climate.unibe.ch : added return_ATLANTIC_boolean_mask()
 #################################
 
 import numpy as np
@@ -62,6 +64,8 @@ def mask_ATLANTIC(varin, mask, outputformat='xr'):
     elif outputformat=='xr':
         return(varin.where(mask>=6))
 
+def return_ATLANTIC_boolean_mask(mask):
+    return(np.array(mask>=6))
 
 # =======================================================================================
 # generate auxillary grid and related masks and mask-like iterators 

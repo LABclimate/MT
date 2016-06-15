@@ -41,8 +41,7 @@ def calc_dMOC_mgrd(vel_comp, M, PD, PD_bins, do_norm=True, dump_dMxint=False):
     '''
     
     # resample column-wise
-    
-    resample_equidist(M, mgrd, rsgrd)
+
 # =======================================================================================
 # - dMOC on auxillary grid
 # =======================================================================================

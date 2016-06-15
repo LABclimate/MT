@@ -85,6 +85,25 @@ def calc_MOC_mgrd(vel_comp, M, do_norm=True, dump_Mxint=False):
       return(MOC)
 
 # =======================================================================================
+# - MOC on model grid with np-array as input (harder coded version of calc_MOC_mgrd())
+#  normalisation as additional output
+# =======================================================================================
+def calc_MOC_mgrd_nparray(vel_comp, M, dump_Mxint=False):
+    ''' same as in calc_MOc_mgrd()'''
+    # zonal integration along model grid    
+    Mxint = np.nansum(M, 2) # zonal integration
+    # meridional integration along model grid
+    MOC = Mxint
+    for j in np.arange(1,Mxint.shape[1]): 	# meridional integration
+      MOC[:,j] = MOC[:,j] + MOC[:,j-1]
+    # normalisation relative to North (shift values such that zero at northern boundary)
+    MOC_norm = MOC - np.tile(MOC[:,-1],(MOC.shape[1],1)).T
+
+    if dump_Mxint == True:  return(MOC, MOC_norm, Mxint)
+    else:                   return(MOC, MOC_norm)
+
+
+# =======================================================================================
 # - MOC on auxillary grid
 # =======================================================================================
 '''
@@ -109,15 +128,15 @@ def calc_MOC_mgrd(vel_comp, M, do_norm=True, dump_Mxint=False):
 def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, vel_comp, M, ncdat, path_vars, savevar=True):
     '''
     Input:
-     > lat_auxgrd               : meridional auxillary grid | nparray
-     > z_auxgrd                 : vertical auxillary grid | nparray
-     > vel_comp         	: either 'W' or 'V' | string
-     > M                        : volume transport (MW or MV) | nparray of shape [nz, nlat, nlon]
-     > ncdat                    : netCDFdata to load REGION_MASK
-     > path_vars                : path for saving variables | string
-     > savevar                  : boolean
+     > lat_auxgrd           : meridional auxillary grid | nparray
+     > z_auxgrd             : vertical auxillary grid | nparray
+     > vel_comp             : either 'W', 'V', 'dW' or 'dV' | string
+     > M                    : volume transport (MW or MV) | nparray of shape [nz, nlat, nlon]
+     > ncdat                : netCDFdata to load REGION_MASK
+     > path_vars            : path for saving variables | string
+     > savevar              : boolean
     Output:
-     > Mxint                   : zonally integrated volume transport of shape [nz, nlat] | xarray
+     > Mxint                : zonally integrated volume transport of shape [nz, nlat] | xarray
     Steps:
      > generate mask (mask_auxgrd) that is 'True' where latitudes of both grids lie in the same box
      > generate array (maxiter_depth) for seafloor detection. It contains the indices of maximal depth
@@ -145,18 +164,30 @@ def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, vel_comp, M, ncdat, path_vars, savev
     except:     iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars)
     try:	maxiter_depth = utils_misc.loadvar(path_vars+'maxiter_depth') 
     except:     maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_auxgrd, ncdat, path_vars)
-    
+
     # zonal integration along aux grid
-    print('> zonal integration')
-    Mxint = np.zeros([len(z_auxgrd), len(lat_auxgrd)])      # pre-allocation with zeros (np-array like for speed)
-    for n in iter_lat_auxgrd:
-      utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
-      for j in iter_lat_M:
-        for i in iter_maskcombo[n,j]: 			    # limit zonal integration to Atlantic and grid-overlay
-          for k in np.arange(int(maxiter_depth[j,i])):      # stop at depth of seafloor
-            Mxint[k,n] = np.nansum([Mxint[k,n],M[k,j,i]])   # zonal integration
-    utils_misc.ProgBar('done')
-    
+    if (vel_comp == 'W') | (vel_comp == 'V'):
+        print('> zonal integration')
+        Mxint = np.zeros([len(z_auxgrd), len(lat_auxgrd)])      # pre-allocation with zeros (np-array like for speed)
+        for n in iter_lat_auxgrd:
+          utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
+          for j in iter_lat_M:
+            for i in iter_maskcombo[n,j]: 			    # limit zonal integration to Atlantic and grid-overlay
+              for k in np.arange(int(maxiter_depth[j,i])):      # stop at depth of seafloor
+                Mxint[k,n] = np.nansum([Mxint[k,n],M[k,j,i]])   # zonal integration
+        utils_misc.ProgBar('done')
+        
+    elif (vel_comp == 'dW') | (vel_comp == 'dV'):
+        print('> zonal integration')
+        Mxint = np.zeros([len(z_auxgrd), len(lat_auxgrd)])      # pre-allocation with zeros (np-array like for speed)
+        for n in iter_lat_auxgrd:
+          utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
+          for j in iter_lat_M:
+            for i in iter_maskcombo[n,j]: 			    # limit zonal integration to Atlantic and grid-overlay
+              for k in np.arange(len(z_auxgrd)):      # stop at depth of seafloor
+                Mxint[k,n] = np.nansum([Mxint[k,n],M[k,j,i]])   # zonal integration
+        utils_misc.ProgBar('done')
+        
     # write Mxint to xarray
     Mxint= xr.DataArray(Mxint,
 		attrs={'units':u'Sv'},
@@ -175,14 +206,13 @@ def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, vel_comp, M, ncdat, path_vars, savev
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid
 # ---------------------------------------------------------------------------------------
-def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, vel_comp, Mxint, ncdat, path_vars, do_norm=True, savevar=True):
+def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, vel_comp, Mxint, path_vars, savevar=True):
     '''
     Input:
      > lat_auxgrd               : vector with meridional auxillary grid
      > z_auxgrd                 : vector with vertical auxillary grid
      > vel_comp         	: either 'W' or  'V' (string)    
      > Mxint                    : zonally integrated volume transport
-     > ncdat                    : netCDFdata to load REGION_MASK
      > path_vars                : path for saving variables | string
      > do_norm                  : do normalisation relative to northern boundary | boolean
      > savevar                  : boolean
@@ -230,11 +260,10 @@ def calc_MOC_auxgrd(lat_auxgrd, z_auxgrd, vel_comp, Mxint, ncdat, path_vars, do_
                 name=xrname)
 
     # normalisation relative to North (shift values such that zero at northern boundary)
-    if do_norm == True:
-      MOC = MOC - MOC[:,-1]
+    MOC_norm = MOC - np.tile(MOC[:,-1],(MOC.shape[1],1)).T
 
     # save to file
     if savevar == True:
       utils_misc.savevar(MOC, path_vars + fname)
 
-    return(MOC)
+    return(MOC, MOC_norm)

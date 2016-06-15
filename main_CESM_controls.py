@@ -76,14 +76,14 @@ try:    MOC_auxgrd_W = utils_misc.loadvar(path_auxgrd+'MOC_auxgrd_W') 		# load f
 except:
   try:    MWxint_auxgrd = utils_misc.loadvar(path_auxgrd+'MWxint_auxgrd')         # load from file
   except: MWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW.values, ncdat, path_auxgrd)
-  MOC_auxgrd_W = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint_auxgrd, ncdat, path_auxgrd)
+  MOC_auxgrd_W, MOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint_auxgrd, path_auxgrd)
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid - VVEL (in Sv)
 try:    MOC_auxgrd_V = utils_misc.loadvar(path_auxgrd+'MOC_auxgrd_V') 		# load from file
 except:
   try:    MVxint_auxgrd = utils_misc.loadvar(path_auxgrd+'MVxint_auxgrd')         # load from file
   except: MVxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MV_projauxgrd.values, ncdat, path_auxgrd)
-  MOC_auxgrd_V = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MVxint_auxgrd, ncdat, path_auxgrd)
+  MOC_auxgrd_V, MOC_auxgrd_V_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MVxint_auxgrd, path_auxgrd)
 # ---------------------------------------------------------------------------------------
 # - Zonal maximum of ocean depth
 try:    HT_auxgrd_xmax = utils_misc.loadvar(path_auxgrd+'HT_auxgrd_xmax') 	# load from file
@@ -114,15 +114,34 @@ utils_plt.print2pdf(fig, 'testfigures/BSF_model_T')
 # -----------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------
 
-SA = ncdat.SALT[0,:,:,:].values     # absolute salinity
-PT = ncdat.TEMP[0,:,:,:].values     # potential temperature
-CT = gsw.CT_from_pt(SA, PT)         # conservative temperature
-sig2 = gsw.sigma2(SA, CT)           # potential density relative to 2000dbar
-RHO = ncdat.RHO[0,:,:,:].values     # in situ density
-PD_bins = np.linspace(28,38,101)    # PD_bins = np.linspace(1.004,1.036,65)
+SA = ncdat.SALT[0,:,:,:].values             # absolute salinity
+PT = ncdat.TEMP[0,:,:,:].values             # potential temperature
+CT = gsw.CT_from_pt(SA, PT)                 # conservative temperature
+sig2 = gsw.sigma2(SA, CT)                   # potential density anomaly referenced to 2000dbar
+RHO = ncdat.RHO[0,:,:,:].values/1000-1000   # in situ density anomaly [SI]
+PD_bins = np.linspace(27,38,100)            # PD_bins = np.linspace(1.004,1.036,65)
+
+
+dMW = utils_conv.resample_dens_colwise(MW.values, sig2, PD_bins)
+
+dMOC_mgrd_W, dMOC_mgrd_W_norm, dMWxint_mgrd = utils_MOC.calc_MOC_mgrd_nparray('W', dMW, dump_Mxint=True)
+
+dMWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, PD_bins, 'dW', dMW, ncdat, path_auxgrd)
+dMOC_auxgrd_W, dMOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, PD_bins, 'W', dMWxint_auxgrd, path_auxgrd)
+
+lat_mgrd = ncdat.TLAT.isel(nlon=0) 			# should be changed I guess
+
+fig, ax = utils_plt.plot_MOC(lat_mgrd, PD_bins, dMOC_mgrd_W_norm, nlevels=40, plttype='contourf')
+plt.title('dMOC mgrd W')
+plt.xlim([-36,73])
+
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, PD_bins, dMOC_auxgrd_W_norm, nlevels=40, plttype='contourf')
+plt.title('dMOC auxgrd W')
+plt.xlim([-36,90])
+
+
 
 # - dMOC on model grid (in Sv)
-#dMOC_mgrd_W, dMxint_mgrd = utils_dMOC.calc_dMOC_mgrd('W', MW.values, RHO, PD_bins, do_norm=False, dump_dMxint=True)
 dMOC_mgrd_W, dMxint_mgrd = utils_dMOC.calc_dMOC_mgrd('W', MW.values, sig2, PD_bins, do_norm=False, dump_dMxint=True)
 dMOC_mgrd_W_norm = dMOC_mgrd_W - np.tile(dMOC_mgrd_W[:,-1],(384,1)).T
 '''
@@ -132,7 +151,7 @@ dMOC_auxgrd_W = utils_dMOC.calc_dMOC_auxgrd(lat_auxgrd, PD_bins, 'W', dMWxint_au
 '''
 
 # dMOC_mgrd_W
-lat_mgrd = ncdat.TLAT.mean(dim='nlon') 				# should be changed I guess
+lat_mgrd = ncdat.TLAT.mean(dim='nlon') 		# should be changed I guess
 fig, ax = utils_plt.plot_MOC(lat_mgrd, PD_bins[:-1], dMOC_mgrd_W, nlevels=10, plttype='contourf')
 plt.title('dMOC mgrd W')
 plt.xlim([-30,70])
@@ -142,7 +161,7 @@ utils_plt.print2pdf(fig, 'testfigures/dMOC_mgrd_W')
 # -----------------------------------------------------------------------------------------
 
 # MOC_mgrd_W
-lat_mgrd = ncdat.TLAT.isel(nlon=0) 				# should be changed I guess
+lat_mgrd = ncdat.TLAT.isel(nlon=0) 			# should be changed I guess
 fig, ax = utils_plt.plot_MOC(lat_mgrd, ncdat.z_w_top, MOC_mgrd_W, nlevels=40, plttype='contourf')
 plt.plot(lat_mgrd,HT_mgrd_xmax) 				# plot seafloor #! it's the T-grid!!!
 plt.title('MOC mgrd W')
@@ -151,7 +170,7 @@ utils_plt.print2pdf(fig, 'testfigures/MOC_mgrd_W')
 
 '''
 # MOC_mgrd_V
-lat_mgrd = ncdat.TLAT.isel(nlon=0) 				# should be changed I guess
+lat_mgrd = ncdat.TLAT.isel(nlon=0) 			# should be changed I guess
 fig, ax = utils_plt.plot_MOC(lat_mgrd, ncdat.z_t, MOC_mgrd_V, nlevels=100, plttype='contourf')
 plt.plot(lat_mgrd,HT_mgrd_xmax)				# plot seafloor
 plt.title('MOC mgrd V')
