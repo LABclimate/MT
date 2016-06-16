@@ -9,7 +9,6 @@
 #################################
 # contained functions:
 #################################
-# - calc_MW()
 # - calc_MOC_mgrd()
 # - calc_Mxint_auxgrd()
 # - calc_MOC_auxgrd()
@@ -17,7 +16,8 @@
 # please log your changes below:
 #################################
 # 17-Mai-2016 - buerki@climate.unibe.ch : created this toolbox
-# 24?-Mai-2016 -buerki@climate.unibe.ch : seperated calc_Mxint_auxgrd() from calc_MOC_auxgrd()
+# 24-Mai-2016 - buerki@climate.unibe.ch : seperated calc_Mxint_auxgrd() from calc_MOC_auxgrd()
+# 16-Jun-2016 - buerki@climate.unibe.ch : migrated calc_MW() to utils_transports
 #################################
 
 import numpy as np
@@ -25,21 +25,6 @@ import xarray as xr
 import pickle
 import CESM_utils_mask as utils_mask
 import UTILS_misc as utils_misc
-
-# =======================================================================================
-# - Compute vertical volume transport MW (in Sv)
-# =======================================================================================
-def calc_MW(ncdat):
-    ''' 
-    Comments:
-     > Conversion from cgs units to Sv by multiplication with 1e-12
-    '''
-    wvel = utils_mask.mask_ATLANTIC(ncdat.WVEL.mean(dim='time'), ncdat.REGION_MASK)
-    TAREA = ncdat.TAREA # z-area of T cells
-    MW = xr.DataArray(wvel*TAREA*1e-12,
-		    name='vertical volume transport',
- 		    attrs={'units':u'Sv'})
-    return(MW)
 
 # =======================================================================================
 # - MOC on model grid
@@ -122,6 +107,7 @@ def calc_MOC_mgrd_nparray(transport_type, M, dump_Mxint=False):
     i: longitude on model-grid and 
     k: depth on both grids
 '''
+
 # ---------------------------------------------------------------------------------------
 # - zonal integration of Volume Transport along auxillary grid
 # ---------------------------------------------------------------------------------------
@@ -206,7 +192,7 @@ def calc_MOC_auxgrd(lat_ax, zd_ax, transport_type, Mxint, path_vars, savevar=Tru
     Input:
      > lat_ax               : meridional axis of auxgrd | nparray
      > zd_ax                : vertical or density axis of auxgrd | nparray
-     > transport_type             : either 'W', 'V', 'dW' or 'dV' | string
+     > transport_type       : either 'W', 'V', 'dW' or 'dV' | string
      > Mxint                : zonally integrated volume transport
      > path_vars            : path for saving variables | string
      > do_norm              : do normalisation relative to northern boundary | boolean

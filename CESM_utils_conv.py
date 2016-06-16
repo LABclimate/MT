@@ -85,19 +85,16 @@ def resample_1dim_lin(data_mgrd, mgrd, rsgrd):
      > for 'short' loopingbehaviour the gradient of mgrd MUST be monotoneously increasing.
     '''
     
-    # Check monotony of mgrd
-
     # Pre-allocation of data_rsgrd | if rsgrd is longer than mgrd fill tail with nans
     data_rsgrd = np.ones(shape =rsgrd.shape)*np.nan
 
-    # Resampling
-    idxm = 0                                    # index on mgrd
-    idxrs = 0                                   # index on rsgrd
-    
     # Smart Loopingbehaviour
     if any(np.diff(mgrd)<0):     loopingbehaviour = 'long' # complete looping for mgrd with negative gradients.
     else:                        loopingbehaviour = 'short'# efficient looping only for monotoneously increasing mgrd.
 
+    # Resampling
+    idxm = 0                                    # index on mgrd
+    idxrs = 0                                   # index on rsgrd
     if loopingbehaviour == 'short':
         while (idxrs < len(rsgrd)-1) & (rsgrd[idxrs] <= np.nanmax(mgrd)): #! another restriction for non-monotonical density
           while (idxm < len(mgrd)-1) & (rsgrd[idxrs] > mgrd[idxm]): # jump to closest neighbour
