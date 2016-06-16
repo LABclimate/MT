@@ -139,8 +139,6 @@ def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, vel_comp, M, ncdat, path_vars, savev
      > Mxint                : zonally integrated volume transport of shape [nz, nlat] | xarray
     Steps:
      > generate mask (mask_auxgrd) that is 'True' where latitudes of both grids lie in the same box
-     > generate array (maxiter_depth) for seafloor detection. It contains the indices of maximal depth
-       for each point on model grid (T points) in order to stop k-iteration at the seafloor.
      > calculate Mxint by zonal integration along aux grid
      > n-loop: over latitude on aux grid
      >   j-loop: over latitudes on model grid
@@ -158,34 +156,32 @@ def calc_Mxint_auxgrd(lat_auxgrd, z_auxgrd, vel_comp, M, ncdat, path_vars, savev
     iter_lat_M = np.arange(M.shape[1])
 
     # get masks and iteration-indices to speed up subsequent loops (calculate if loading from file fails)
-    try: 	mask_auxgrd = utils_misc.loadvar(path_vars+'mask_auxgrd')
-    except: 	mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_auxgrd, ncdat, path_vars)
-    try:	iter_maskcombo = utils_misc.loadvar(path_vars+'iter_maskcombo')
-    except:     iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars)
-    try:	maxiter_depth = utils_misc.loadvar(path_vars+'maxiter_depth') 
-    except:     maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_auxgrd, ncdat, path_vars)
+    try:    mask_auxgrd = utils_misc.loadvar(path_vars+'mask_auxgrd')
+    except: mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_auxgrd, ncdat, path_vars)
+    try:    iter_maskcombo = utils_misc.loadvar(path_vars+'iter_maskcombo')
+    except: iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars)
 
+    print(len(z_auxgrd))
     # zonal integration along aux grid
+      # ... on depth-axis
     if (vel_comp == 'W') | (vel_comp == 'V'):
         print('> zonal integration')
         Mxint = np.zeros([len(z_auxgrd), len(lat_auxgrd)])      # pre-allocation with zeros (np-array like for speed)
         for n in iter_lat_auxgrd:
           utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
           for j in iter_lat_M:
-            for i in iter_maskcombo[n,j]: 			    # limit zonal integration to Atlantic and grid-overlay
-              for k in np.arange(int(maxiter_depth[j,i])):      # stop at depth of seafloor
-                Mxint[k,n] = np.nansum([Mxint[k,n],M[k,j,i]])   # zonal integration
+            for i in iter_maskcombo[n,j]:                       # limit zonal integration to Atlantic and grid-overlay
+              Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
         utils_misc.ProgBar('done')
-        
+      # ... on density-axis
     elif (vel_comp == 'dW') | (vel_comp == 'dV'):
         print('> zonal integration')
         Mxint = np.zeros([len(z_auxgrd), len(lat_auxgrd)])      # pre-allocation with zeros (np-array like for speed)
         for n in iter_lat_auxgrd:
           utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
           for j in iter_lat_M:
-            for i in iter_maskcombo[n,j]: 			    # limit zonal integration to Atlantic and grid-overlay
-              for k in np.arange(len(z_auxgrd)):      # stop at depth of seafloor
-                Mxint[k,n] = np.nansum([Mxint[k,n],M[k,j,i]])   # zonal integration
+            for i in iter_maskcombo[n,j]:                       # limit zonal integration to Atlantic and grid-overlay
+              Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
         utils_misc.ProgBar('done')
         
     # write Mxint to xarray

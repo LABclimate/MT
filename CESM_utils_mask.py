@@ -14,7 +14,6 @@
 # - gen_auxgrd()
 # - gen_mask_grd_overlay_lat()
 # - gen_iter_maskcombo()
-# - get_maxiter_depth()
 # - calc_HT_mgrd_xmax()
 # - calc_HT_auxgrd_xmax()
 #################################
@@ -37,6 +36,7 @@
 # 31-Mai-2016 - buerki@climate.unibe.ch : in gen_maxiter_depth() changed '<' back to '<='
 # 01-Jun-2016 - buerki@climate.unibe.ch : migrated gen_auxgrd from utils_MOC to utils_mask
 # 15-Jun-2016 - buerki@climate.unibe.ch : added return_ATLANTIC_boolean_mask()
+# 16-Jun-2016 - buerki@climate.unibe.ch : removed gen_maxiter_depth()
 #################################
 
 import numpy as np
@@ -169,37 +169,6 @@ def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars, savevar=True):
     plt.figure()
     plt.pcolor(b)
     '''
-# --------------------------------------------------
-# generate maxiter_depth, an array for seafloor detection on model grid
-# --------------------------------------------------
-def gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, ncdat, path_vars, savevar=True):
-    ''' Array of size (nlatMODELgrid, nlonMODELgrid)
-        It contains the indices of maximal depth (model T-grid) in order to stop k-iteration at the seafloor
-     
-    Comments:
-      > For future generalization, think about, whether function argument z_w_auxgrd shall really 
-        run on aux-grid or not on model grid, as they may differ from each other.
-      > Make function lat_auxgrd independent
-    '''
-    print('> generating maxiter_depth')
-    # np-arrays for speed    
-    lat_mgrdT, iter_lat_auxgrd, iter_lat_mgrdT, iter_lon_mgrdT = utils_mask.vars2speedup(lat_auxgrd, ncdat)
-    HT = ncdat.HT.values
-    # pre-allocation with zeros and dtype=object
-    maxiter_depth = np.zeros([len(ncdat.nlat), len(ncdat.nlon)], dtype=object)
-
-    for j in iter_lat_mgrdT:
-      utils_misc.ProgBar('step', step=j, nsteps=len(iter_lat_mgrdT))
-      for i in iter_lon_mgrdT:
-        try:    maxiter_depth[j,i] = np.where(z_w_auxgrd <= HT[j,i])[-1][-1] 	# index of maximal depth at j,i
-        except: maxiter_depth[j,i] = np.array([])
-    utils_misc.ProgBar('done')
-
-    if savevar == True:                                         # save to file
-      utils_misc.savevar(maxiter_depth, path_vars+'maxiter_depth')
-
-    return(maxiter_depth)
-
 
 # =======================================================================================
 #  Find maixmal depth along longitudes for different grids

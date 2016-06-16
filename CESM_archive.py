@@ -17,7 +17,63 @@
 #################################
 
 
- 
+# =======================================================================================
+# - maxiter_depth filtering
+# =======================================================================================
+''' It was found out only after abandoning this rather slow looping method
+    that np.arange crops last entry, therefore think about adding +1
+'''
+
+# in utils_mask:
+# --------------
+
+        # --------------------------------------------------
+        # generate maxiter_depth, an array for seafloor detection on model grid
+        # --------------------------------------------------
+        def gen_maxiter_depth(lat_auxgrd, z_w_auxgrd, ncdat, path_vars, savevar=True):
+            ''' Array of size (nlatMODELgrid, nlonMODELgrid)
+                It contains the indices of maximal depth (model T-grid) in order to stop k-iteration at the seafloor
+             
+            Comments:
+              > For future generalization, think about, whether function argument z_w_auxgrd shall really 
+                run on aux-grid or not on model grid, as they may differ from each other.
+              > Make function lat_auxgrd independent
+            '''
+            print('> generating maxiter_depth')
+            # np-arrays for speed    
+            lat_mgrdT, iter_lat_auxgrd, iter_lat_mgrdT, iter_lon_mgrdT = utils_mask.vars2speedup(lat_auxgrd, ncdat)
+            HT = ncdat.HT.values
+            # pre-allocation with zeros and dtype=object
+            maxiter_depth = np.zeros([len(ncdat.nlat), len(ncdat.nlon)], dtype=object)
+        
+            for j in iter_lat_mgrdT:
+              utils_misc.ProgBar('step', step=j, nsteps=len(iter_lat_mgrdT))
+              for i in iter_lon_mgrdT:
+                try:    maxiter_depth[j,i] = np.where(z_w_auxgrd <= HT[j,i])[-1][-1] 	# index of maximal depth at j,i
+                except: maxiter_depth[j,i] = np.array([])
+            utils_misc.ProgBar('done')
+        
+            if savevar == True:                                         # save to file
+              utils_misc.savevar(maxiter_depth, path_vars+'maxiter_depth')
+        
+            return(maxiter_depth)
+
+# in utils_MOC:
+# -------------
+
+            ''' > generate array (maxiter_depth) for seafloor detection. It contains the indices of maximal depth
+                  for each point on model grid (T points) in order to stop k-iteration at the seafloor.:
+            '''
+            try:    maxiter_depth = utils_misc.loadvar(path_vars+'maxiter_depth') 
+            except: maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_auxgrd, ncdat, path_vars)
+            # [...]
+                for k in np.arange(int(maxiter_depth[j,i])):      # stop at depth of seafloor
+                    Mxint[k,n] = np.nansum([Mxint[k,n],M[k,j,i]], axis=0)   # zonal integration
+             
+             
+             
+             
+             
 # =======================================================================================
 # - dMOC on model grid
 # =======================================================================================

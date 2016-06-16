@@ -93,8 +93,6 @@ def calc_dMxint_auxgrd(lat_auxgrd, z_auxgrd, vel_comp, M, PD, PD_bins, ncdat, pa
     except: 	mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_auxgrd, ncdat, path_vars)
     try:	iter_maskcombo = utils_misc.loadvar(path_vars+'iter_maskcombo')
     except:     iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars)
-    try:	maxiter_depth = utils_misc.loadvar(path_vars+'maxiter_depth') 
-    except:     maxiter_depth = utils_mask.gen_maxiter_depth(lat_auxgrd, z_auxgrd, ncdat, path_vars)
     # pre-allocation with zeros
     mask_PD_bins = np.zeros(shape=(len(PD_bins)-1, PD.shape[1]), dtype=object)
     dMxint = np.zeros(shape=mask_PD_bins.shape)
