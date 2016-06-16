@@ -133,8 +133,6 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
                    the order of the iteration is rolled to begin at western boundary of Atlantic
                    but actually, this 
      >       zonal integration by summing up vertical volume transports (M) of model grid for every depth (vectorially)
-    Comments:
-     > none
     '''
     # a few variables to speed up subsequent loops
     iter_lat_ax = np.arange(len(lat_ax))
@@ -153,7 +151,7 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
         print('> zonal integration')
         Mxint = np.zeros([len(zd_ax), len(lat_ax)])      # pre-allocation with zeros (np-array like for speed)
         for n in iter_lat_ax:
-          utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax), minbarlen=60)
+          utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax))
           for j in iter_lat_M:
             for i in iter_maskcombo[n,j]:                       # limit zonal integration to Atlantic and grid-overlay
               Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
@@ -163,7 +161,7 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
         print('> zonal integration')
         Mxint = np.zeros([len(zd_ax), len(lat_ax)])      # pre-allocation with zeros (np-array like for speed)
         for n in iter_lat_ax:
-          utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax), minbarlen=60)
+          utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax))
           for j in iter_lat_M:
             for i in iter_maskcombo[n,j]:                       # limit zonal integration to Atlantic and grid-overlay
               Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
@@ -215,7 +213,7 @@ def calc_MOC_auxgrd(lat_ax, zd_ax, transport_type, Mxint, path_vars, savevar=Tru
       # meridional integration along aux grid
       print('> meridional integration')
       for n in iter_lat_ax[1:]:
-        utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax), forceinit=True, minbarlen=60)
+        utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax), forceinit=True)
         MOC[:,n] = np.nansum([MOC[:,n], MOC[:,n-1]], axis=0) 	        # meridional integration
       utils_misc.ProgBar('done')
 
@@ -226,7 +224,7 @@ def calc_MOC_auxgrd(lat_ax, zd_ax, transport_type, Mxint, path_vars, savevar=Tru
       # vertical integration along aux grid
       print('> vertical integration')
       for k in iter_zd_ax[1:]:
-        utils_misc.ProgBar('step', step=k, nsteps=len(iter_zd_ax), forceinit=True, minbarlen=60)
+        utils_misc.ProgBar('step', step=k, nsteps=len(iter_zd_ax), forceinit=True)
         MOC[k,:] = np.nansum([MOC[k,:], MOC[k-1,:]], axis=0) 		# meridional integration
       utils_misc.ProgBar('done')
 

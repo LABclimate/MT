@@ -41,18 +41,20 @@ auxgrd_name = ['lat395model_zeq60', 'lat198model_zeq60', 'lat170eq80S90N_zeq60',
 lat_auxgrd, zT_auxgrd, z_w_top_auxgrd = utils_mask.gen_auxgrd(ncdat, auxgrd_name)
 lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very inappropriate
 # ---------------------------------------------------------------------------------------
-# - Paths
-path_auxgrd = paths.get_path2var(auxgrd_name)
-utils_misc.checkdir(path_auxgrd)
-path_mgrd = 'vars_mgrd/'
-# ---------------------------------------------------------------------------------------
 # - Potential density and binning
 SA = ncdat.SALT[0,:,:,:].values             # absolute salinity
 PT = ncdat.TEMP[0,:,:,:].values             # potential temperature
 CT = gsw.CT_from_pt(SA, PT)                 # conservative temperature
 sig2 = gsw.sigma2(SA, CT)                   # potential density anomaly referenced to 2000dbar
-RHO = ncdat.RHO[0,:,:,:].values/1000-1000   # in-situ density anomaly [SI]
+RHO = ncdat.RHO[0,:,:,:].values*1000-1000   # in-situ density anomaly [SI]
 PD_bins = np.linspace(27,38,200)            # PD_bins = np.linspace(1.004,1.036,65)
+# ---------------------------------------------------------------------------------------
+# - Paths
+path_auxgrd = paths.get_path2var(auxgrd_name)
+utils_misc.checkdir(path_auxgrd)
+path_mgrd = 'vars_mgrd/'
+path_dens = 'vars_dens/'
+varname_binning = 'eqbins_{}to{}in{}steps'.format(int(PD_bins.min()), int(PD_bins.max()), int(len(PD_bins)))
 
 # =======================================================================================
 #  Variables contained in model output
@@ -69,15 +71,20 @@ rho = rho.mean(dim='nlon')
 # =======================================================================================
 ''' BSF: Barotropic Streamfunction
     MOC: Meridional Overturning Circulation Streamfunction
-    MV:  meridional volume transport
     MW:  vertical volume transport
+    MV:  meridional volume transport
 '''
 # ---------------------------------------------------------------------------------------
 # - Volume transports (in Sv)
 MV_mgrd = utils_transp.calc_MV(ncdat)                                           # on model grid
 MV_projauxgrd = utils_conv.project_on_auxgrd(MV_mgrd, ncdat.ANGLE.values)       # on auxiliary grid
 MW = utils_transp.calc_MW(ncdat)                                                # valid on both grids
-MW_dens = utils_conv.resample_dens_colwise(MW.values, sig2, PD_bins)            # resampled on density axis #! however, it's still the vertical transport!!
+
+try:    MW_dens = utils_misc.loadvar(path_dens+'MW_rho_'+varname_binning)      # load from file
+except:
+    MW_dens = utils_conv.resample_dens_colwise(MW.values, RHO, PD_bins)        # resampled on density axis #! however, it's still the vertical transport!!
+    utils_misc.savevar(MW_dens, path_dens+'MW_rho_'+varname_binning)           # save to file
+
 # ---------------------------------------------------------------------------------------
 # - Streamfunctions (in Sv)...
 # ... on model grid
@@ -118,6 +125,7 @@ except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_mgrd)
 #  PLOTTING
 # #######################################################################################
 plt.ion() # enable interactive mode
+path_fig = 'figures_Jun16'
 # =======================================================================================
 #  CCSM4 representations
 # =======================================================================================
@@ -151,19 +159,21 @@ fig, ax = utils_plt.plot_MOC(lat_mgrd, ncdat.z_w_top, MOC_mgrd_W, nlevels=40, pl
 plt.plot(lat_mgrd,HT_mgrd_xmax) 				# plot seafloor #! it's the T-grid!!!
 plt.title('MOC mgrd W')
 plt.xlim([-36,90])
- #utils_plt.print2pdf(fig, 'testfigures/MOC_mgrd_W')
+utils_plt.print2pdf(fig, path_fig+'MOC_mgrd_W')
 # -----------------------------------------------------------------------------------------
 # MOC_mgrd_V
 fig, ax = utils_plt.plot_MOC(lat_mgrd, ncdat.z_t, MOC_mgrd_V, nlevels=100, plttype='contourf')
 plt.plot(lat_mgrd,HT_mgrd_xmax)				# plot seafloor
 plt.title('MOC mgrd V')
 plt.xlim([-36,90])
- #utils_plt.print2pdf(fig, 'testfigures/MOC_mgrd_V')
+ #utils_plt.print2pdf(fig, path_fig+'MOC_mgrd_V')
 # -----------------------------------------------------------------------------------------
 # dMOC on model grid (in Sv)
 fig, ax = utils_plt.plot_MOC(lat_mgrd, PD_bins, dMOC_mgrd_W_norm, nlevels=40, plttype='contourf')
-plt.title('dMOC mgrd W')
+plt.title('dMOC mgrd W (rho)')
+plt.suptitle('density binning from {} to {} in {} steps'.format(PD_bins.min(), PD_bins.max(), len(PD_bins)))
 plt.xlim([-36,73])
+utils_plt.print2pdf(fig, path_fig+'dMOC_mgrd_W_rho')
 
 # =======================================================================================
 #  Calculated on auxiliary (geographical) grid
@@ -175,7 +185,7 @@ plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.plot([0]*len(MW.z_w_top), MW.z_w_top, 'x', color='red') 	# plot depth-layers
 plt.xlim([-36,90])
 plt.title('MOC auxgrd W')
- #utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_W')
+utils_plt.print2pdf(fig, path_fig+'MOC_auxgrd_W')
 # -----------------------------------------------------------------------------------------
 # MOC_auxgrd_V
 fig, ax = utils_plt.plot_MOC(lat_auxgrd, zT_auxgrd, MOC_auxgrd_V_norm, nlevels=40, plttype='contourf')
@@ -187,9 +197,10 @@ plt.title('MOC auxgrd V')
 # -----------------------------------------------------------------------------------------
 # dMOC on auxiliary grid (in Sv)
 fig, ax = utils_plt.plot_MOC(lat_auxgrd, PD_bins, dMOC_auxgrd_W_norm, nlevels=40, plttype='contourf')
-plt.title('dMOC auxgrd W')
+plt.title('dMOC auxgrd W (rho)')
 plt.suptitle('density binning from {} to {} in {} steps'.format(PD_bins.min(), PD_bins.max(), len(PD_bins)))
 plt.xlim([-36,90])
+utils_plt.print2pdf(fig, path_fig+'dMOC_auxgrd_W_rho')
 # -----------------------------------------------------------------------------------------
 # MWxint_auxgrd
 fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MWxint_auxgrd, nlevels=100, plttype='contourf')

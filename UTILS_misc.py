@@ -92,8 +92,8 @@ def savevar(var, filename):
 # --- add directory if unexistant
 def checkdir(dirname):
     if os.path.isdir(dirname)==False:
-      os.mkdir(path_vars) # if this fails --> create the folder on your own!
-      print(' -> created new directory:' + path_vars)
+      os.mkdir(dirname)
+      print(' -> created new directory:' + dirname)
 
 
 #################################################################################################

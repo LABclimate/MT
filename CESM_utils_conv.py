@@ -48,16 +48,17 @@ def project_on_auxgrd(varin, angle):
 # - resampling data on new grid using linear interpolation (along single dimension)
 # =======================================================================================
 
-def resample_dens_colwise(var_mgrd, dens, dens_bins, mask='set_all_true'):
+def resample_dens_colwise(var_mgrd, dens, dens_bins, mask='none'):
     ''' uses resample_1dim_lin() 
     Input:
      > var_mgrd:   variable on model grid (dens)
      > dens:       in-situ or potential density
      > dens_bins:  new (equally spaced) bining of density
+     > mask:       mask of shape [j,i], default: all True (no mask)
     '''
     print(' > resampling on new density grid')
     # get default for regional mask
-    if mask == 'set_all_true':
+    if mask == 'none':
       mask = np.ones(shape=var_mgrd.shape[1:], dtype=bool)
     # pre-allocation
     var_rs = np.ones(shape=[len(dens_bins), var_mgrd.shape[1], var_mgrd.shape[2]])*np.nan
