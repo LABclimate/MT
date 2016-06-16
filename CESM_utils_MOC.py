@@ -185,12 +185,12 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
 # ---------------------------------------------------------------------------------------
 # - MOC on auxillary grid
 # ---------------------------------------------------------------------------------------
-def calc_MOC_auxgrd(lat_ax, zd_ax, transport_type, Mxint, path_vars, savevar=True):
+def calc_MOC_auxgrd(lat_ax, zd_ax, transport_type, Mxint, intdir, path_vars, savevar=True):
     '''
     Input:
      > lat_ax               : meridional axis of auxgrd | nparray
      > zd_ax                : vertical or density axis of auxgrd | nparray
-     > transport_type       : either 'W', 'V', 'dW' or 'dV' | string
+     > transport_type       : either 'W' or 'V' | string
      > Mxint                : zonally integrated volume transport
      > path_vars            : path for saving variables | string
      > do_norm              : do normalisation relative to northern boundary | boolean
@@ -202,10 +202,14 @@ def calc_MOC_auxgrd(lat_ax, zd_ax, transport_type, Mxint, path_vars, savevar=Tru
      > normalisation relative to northern boundary: at every point substract northernmost value at same depth, 
        such that streamfunction closes at NP.
     '''
-    # a few variables to speed up subsequent loops 
+    # iterators integration | direction: meridional (S-->N) and vertical/density (increasing)
     iter_lat_ax = np.arange(len(lat_ax))
     iter_zd_ax = np.arange(len(zd_ax))
-
+    # invert direction direction of integration
+    if intdir in ['inverse', 'inv', 'reverse', 'rev', -1]:
+        iter_lat_ax = iter_lat_ax[::-1]
+        iter_zd_ax = iter_zd_ax[::-1]
+        
     # preallocation of MOC as np-array
     MOC = np.copy(Mxint) # start with Mxint, which subsequently will be summed up
 

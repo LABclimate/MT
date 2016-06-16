@@ -62,11 +62,15 @@ def plot_MOC(xvar, yvar, var, nlevels=100, plttype='contour', min = [], max = []
     # draw plot in new figure
     fig = plt.figure()
     if plttype == 'contourf':
-        ax = plt.contourf(xvar, yvar, var, cmap=cmap, levels=np.linspace(min, max, 100))
+        ax = plt.contourf(xvar, yvar, var, cmap=cmap, levels=np.linspace(min, max, nlevels))
     elif plttype == 'contour':
-        ax = plt.contour(xvar, yvar, var, cmap=cmap, levels=np.linspace(min, max, 100))
+        ax = plt.contour(xvar, yvar, var, cmap=cmap, levels=np.linspace(min, max, nlevels))
     elif plttype == 'pcolor':
-	ax = plt.pcolor(xvar, yvar, var, cmap=cmap)
+        ax = plt.pcolor(xvar, yvar, var, cmap=cmap)
+    elif plttype == 'pcolor+contour':
+        ax = plt.pcolor(xvar, yvar, var, cmap=cmap)
+        plt.contour(xvar, yvar, var, colors='black', levels=np.linspace(min, max, nlevels))
+
     plt.colorbar(ax)
     plt.gca().invert_yaxis()
    # plt.gca().set_yscale("log")
