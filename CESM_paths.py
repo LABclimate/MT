@@ -8,21 +8,20 @@ Created on Mon Apr 18 15:22:04 2016
 global path_lm_1deg, path_ctr_1deg, path_ctr_2deg
 
 
-# last millenium run
+# pre-industrial last millenium run
 ''' ** some more comments ** '''
 
 lm_1deg_root = '/alphadata02/born/lm850-1850.1deg/'
 path_lm_1deg = dict(
   anndat      = lm_1deg_root + 'no_backup/annual_data/', 
-  ppanndat    = lm_1deg_root + 'no_backup/postproc_annual_data/',
-  mondat      = lm_1deg_root + 'montly_data/',
+  ppannav     = lm_1deg_root + 'no_backup/postproc_annual_data/',
+  mondat      = lm_1deg_root + 'monthly_data/',
   sens        = lm_1deg_root + 'sensitivity_runs/')
-
 
 
 # control runs
 ''' ** some more comments ** '''
-# 1-deg atmospherical resolution
+# 1-deg atmospherical resolution 1300 y
 ctr_1deg_root = '/alphadata02/born/no_backup/b40.1850.track1.1deg.006/'
 path_ctr_1deg = dict(
   anndat      = ctr_1deg_root + 'annual_data/',                                
@@ -30,7 +29,7 @@ path_ctr_1deg = dict(
   pp          = ctr_1deg_root + 'postprocessed/',                                       
   ppannav     = ctr_1deg_root + 'postprocessed/annual_average/')                 #?? what's the difference to ctr_1deg_anndat ?
 
-# 2-deg atmospherical resolution
+# 2-deg atmospherical resolution 999 y
 ctr_2deg_root = '/alphadata02/born/no_backup/b40.1850.track1.2deg.003/'
 path_ctr_2deg = dict(
   anndat     = ctr_2deg_root + '/annual_data/',

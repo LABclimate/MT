@@ -25,3 +25,23 @@ for j in np.arange(sig2.shape[1]):
         if any(diff<0):
             numberofneggradients += 1
 print(numberofneggradients, mingradient)
+
+
+
+# =======================================================================================
+# Compare runtimes
+# =======================================================================================
+
+del a
+del b
+del c
+t0 = time.clock()
+a = 
+t1 = time.clock()-t0
+t0 = time.clock()
+b = 
+t2 = time.clock()-t0
+t0 = time.clock()
+c = 
+t3 = time.clock()-t0
+print(t1,t2,t3)
