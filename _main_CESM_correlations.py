@@ -22,42 +22,46 @@ import CESM_utils_transports as utils_transp
 import CESM_utils_MOC as utils_MOC
 import CESM_utils_dMOC as utils_dMOC
 import CESM_utils_BSF as utils_BSF
+import CESM_utils_time as utils_time
+import CESM_utils_analysis as utils_ana
 import CESM_paths as paths
 
 # ---------------------------------------------------------------------------------------
 # paths
 path_mgrd = 'vars_mgrd/'
+path_corr = 'vars_corr/'
+fpath = paths.get_path2data('lm_1deg', 'anndat')
+fnames = ['b40.lm850-1850.1deg.001.pop.h.{:04d}.ann.4.cdf'.format(i) for i in np.arange(850, 1500)]
 
-# #######################################################################################
-#  GET AND PROCESS DATA
-# #######################################################################################
-# ---------------------------------------------------------------------------------------
-# load netcdf file
-fpath='./'
-fname='b40.lm850-1850.1deg.001.pop.h.1279.ann.4.cdf'
-ncdat = xr.open_dataset(fpath+fname, decode_times=False)
-
-# ---------------------------------------------------------------------------------------
-# - Volume transports (in Sv)
-MV_mgrd = utils_transp.calc_MV(ncdat)                                           # on model grid
-MV_projauxgrd = utils_conv.project_on_auxgrd(MV_mgrd, ncdat.ANGLE.values)       # on auxiliary grid
-MW = utils_transp.calc_MW(ncdat)                                                # valid on both grids
-# ---------------------------------------------------------------------------------------
-# - Atlantic Streamfunctions (in Sv)
-BSF_mod = utils_mask.mask_ATLANTIC(ncdat.BSF, ncdat.REGION_MASK)
-MOC_mod = ncdat.MOC.isel(transport_reg=1, moc_comp=0)
-MOC_mod = MOC_mod - MOC_mod[:,-1] # normalisation
-
-BSF_mgrd, MVzint = utils_BSF.calc_BSF_mgrd(MV_mgrd, dump_MVzint=True)
-MOC_mgrd_W, MWxint_mgrd = utils_MOC.calc_MOC_mgrd('W', MW, do_norm=True, dump_Mxint=True)
 
 # =======================================================================================
-#  Zonal maxima of ocean depth
+#  Load time independent variables
 # =======================================================================================
-try:    HT_mgrd_xmax = utils_misc.loadvar(path_mgrd+'HT_mgrd_xmax')             # load from file
-except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', path_mgrd)
-try:    HU_mgrd_xmax = utils_misc.loadvar(path_mgrd+'HU_mgrd_xmax')             # load from file
-except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_mgrd)
+ncdat = xr.open_dataset(fpath+fnames[0], decode_times=False)
+TAREA = ncdat.TAREA
+
+# =======================================================================================
+#  Loop over time
+# =======================================================================================
+# load BSF and MOC (try from pickled file, otherwise load from ncdata)
+try: 
+    BSF_mod = utils_misc.loadvar(path_corr+'BSF_mod') 
+    MOC_mod = utils_misc.loadvar(path_corr+'MOC_mod') 
+except:
+    BSF_mod = []
+    MOC_mod = []
+    for t in np.arange(len(fnames)):
+        # load netcdf file
+        ncdat = xr.open_dataset(fpath+fnames[t], decode_times=False)
+        # write streamfunctions to variables (in Sv)
+        BSF_mod = utils_time.concat(BSF_mod, utils_mask.mask_ATLANTIC(ncdat.BSF, ncdat.REGION_MASK))
+        MOC_mod = utils_time.concat(MOC_mod, ncdat.MOC.isel(transport_reg=1, moc_comp=0))
+    # save
+    utils_misc.savevar(BSF_mod, path_corr+'BSF_mod')
+    utils_misc.savevar(MOC_mod, path_corr+'MOC_mod')
+# normalisation of AMOC
+for t in np.arange(len(MOC_mod)):
+    MOC_mod[t,:,:] = MOC_mod[t,:,:] - MOC_mod[t,:,-1] 
 
 # #######################################################################################
 #  ANALYSIS
@@ -72,24 +76,31 @@ BSF = BSF_mod
 # select region for Streamfunction indices
 MOC = MOC
 BSF = BSF.where((BSF.TLAT>=45) & (BSF.TLAT<=70))
-TAREA = ncdat.TAREA.where((BSF.TLAT>=45) & (BSF.TLAT<=70))
+TAREA = TAREA.where((BSF.TLAT>=45) & (BSF.TLAT<=70))
 # ---------------------------------------------------------------------------------------
 # calculate Streamfunction indices
 MOCidx = MOC.max(dim = ['moc_z','lat_aux_grid'])
-BSFidx = (BSF*TAREA).mean()/TAREA.mean()
+BSFidx = (BSF*TAREA).mean(dim=['nlat', 'nlon'])/TAREA.mean() # weighted average
 # ---------------------------------------------------------------------------------------
 # calculate correlation btw. MOCidx and BSFidx
 corrIDX = utils_ana.xcorr(MOCidx, BSFidx, 0)
+utils_misc.savevar(corrIDX, path_corr+'corrBSFidx')
 # calculate pointwise correlation of MOC with BSFidx
-corrBSFidx = np.zeros_like(MOC)
-for j in np.arange(MOC.shape[-2]):
-    for i in np.arange(MOC.shape[-1]):
-        corrBSFidx[j,i] = utils_ana.xcorr(MOC[:,j,i], BSFidx, 0)
+corrBSFidx = np.zeros(shape = MOC.shape[-2:])
+for j in np.arange(MOC.shape[-1]):
+    utils_misc.ProgBar('step', step = j, nsteps = MOC.shape[-1])
+    for k in np.arange(MOC.shape[-2]):
+        corrBSFidx[k,j] = utils_ana.xcorr(MOC[:,k,j], BSFidx, 0)
+utils_misc.ProgBar('done')
+utils_misc.savevar(corrBSFidx, path_corr+'corrBSFidx')
 # calculate pointwise correlation of BSF with MOCidx
-corrMOCidx = np.zeros_like(BSF)
+corrMOCidx = np.zeros(shape = BSF.shape[-2:])
 for j in np.arange(BSF.shape[-2]):
+    utils_misc.ProgBar('step', step = j, nsteps = MOC.shape[-1])    
     for i in np.arange(BSF.shape[-1]):
-        corrMOCidx = utils_ana.xcorr(BSF[:,j,i], MOCidx, 0)
+        corrMOCidx[j,i] = utils_ana.xcorr(BSF[:,j,i], MOCidx, 0)
+utils_misc.ProgBar('done')
+utils_misc.savevar(corrMOCidx, path_corr+'corrMOCidx')
 
 
 # #######################################################################################
@@ -97,12 +108,41 @@ for j in np.arange(BSF.shape[-2]):
 # #######################################################################################
 plt.ion() # enable interactive mode
 path_fig = 'corrfigs_figures_Jun22/'
+
 # =======================================================================================
-#  CCSM4 representations
+#  Zonal maxima of ocean depth
 # =======================================================================================
+try:    HT_mgrd_xmax = utils_misc.loadvar(path_mgrd+'HT_mgrd_xmax')             # load from file
+except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', path_mgrd)
+try:    HU_mgrd_xmax = utils_misc.loadvar(path_mgrd+'HU_mgrd_xmax')             # load from file
+except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_mgrd)
+
+# =======================================================================================
+#  Streamfunctions
+# =======================================================================================
+lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very inappropriate
+
 # -----------------------------------------------------------------------------------------
 # BSF on geographical grid calculated by model
-fig, map = utils_plt.plot_BSF(BSF_model, 'T', nlevels = 10)
+fig, map = utils_plt.plot_BSF(BSF.isel(time=0), 'T', nlevels = 10)
+plt.title('BSF model on T grid')
+ #utils_plt.print2pdf(fig, 'testfigures/BSF_model_T')
+# -----------------------------------------------------------------------------------------
+# MOC on geographical grid calculated by model
+MOCsel = MOC.isel(time=0)
+fig, ax = utils_plt.plot_MOC(MOCsel.lat_aux_grid, MOCsel.moc_z, MOCsel, nlevels=40, plttype='pcolor+contour')
+plt.plot(lat_mgrd, HT_auxgrd_xmax) 				# plot seafloor
+plt.title('MOC model')
+plt.xlim([-36,90])
+ #utils_plt.print2pdf(fig, 'testfigures/MOC_model')
+
+# =======================================================================================
+#  Streamfunction Indices
+# =======================================================================================
+
+# -----------------------------------------------------------------------------------------
+# BSF on geographical grid calculated by model
+fig, map = utils_plt.plot_BSF(corrBSFidx, 'T', nlevels = 10)
 plt.title('BSF model on T grid')
  #utils_plt.print2pdf(fig, 'testfigures/BSF_model_T')
 # -----------------------------------------------------------------------------------------
@@ -112,49 +152,6 @@ plt.plot(lat_auxgrd,HT_auxgrd_xmax) 				# plot seafloor
 plt.title('MOC model')
 plt.xlim([-36,90])
  #utils_plt.print2pdf(fig, 'testfigures/MOC_model')
-
-# =======================================================================================
-#  Calculated on auxiliary (geographical) grid
-# =======================================================================================
-# -----------------------------------------------------------------------------------------
-# MOC_auxgrd_W
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour')
-plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
-plt.xlim([-36,90])
-plt.title('MOC auxgrd W')
-utils_plt.print2pdf(fig, path_fig+'MOC_auxgrd_W')
-# -----------------------------------------------------------------------------------------
-# MOC_auxgrd_V
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, zT_auxgrd, MOC_auxgrd_V_norm, nlevels=10, plttype='pcolor+contour')
-plt.plot(lat_auxgrd,HU_auxgrd_xmax)  				# plot seafloor
-plt.xlim([-36,90])
-plt.title('MOC auxgrd V')
- #utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_V')
-# -----------------------------------------------------------------------------------------
-# dMOC_auxgrd_W (in Sv)
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, PD_bins, dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour')
-plt.title('dMOC auxgrd W (sigma2)')
-plt.suptitle('density binning from {} to {} in {} steps'.format(PD_bins.min(), PD_bins.max(), len(PD_bins)))
-plt.xlim([-36,90])
-utils_plt.print2pdf(fig, path_fig+'dMOC_auxgrd_W_sig2')
-# -----------------------------------------------------------------------------------------
-# MWxint_auxgrd
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MWxint_auxgrd, nlevels=10, plttype='pcolor+contour')
-plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
-plt.xlim([-36,90])
-plt.title('MWxint auxgrd')
- #utils_plt.print2pdf(fig, 'testfigures/MWxint_auxgrd')
-# -----------------------------------------------------------------------------------------
-# MVxint_auxgrd
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, zT_auxgrd, MVxint_auxgrd, nlevels=10, plttype='pcolor+contour')
-plt.plot(lat_auxgrd,HU_auxgrd_xmax)  				# plot seafloor
-plt.xlim([-36,90])
-plt.title('MVxint auxgrd')
- #utils_plt.print2pdf(fig, 'testfigures/MVxint_auxgrd')
-
-
-
-
 
 
 
@@ -191,10 +188,3 @@ fig, map = utils_plt.pcolor_basemap(MW.roll(nlon=54).mean(dim='z_w_top'), 'T', n
 plt.title('MW')
  #utils_plt.print2pdf(fig, 'testfigures/MW')
 # -----------------------------------------------------------------------------------------
-# ANGLE
-plt.figure()
-plt.pcolor(ncdat.ANGLE*180/np.pi)
-plt.contour(ncdat.REGION_MASK)
-
-fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, MV_projauxgrd[:,:,59])
-fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, ncdat.VVEL[0,:,:,59])
