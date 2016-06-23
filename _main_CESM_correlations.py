@@ -61,7 +61,7 @@ except:
     utils_misc.savevar(MOC_mod, path_corr+'MOC_mod')
 # normalisation of AMOC
 for t in np.arange(len(MOC_mod)):
-    MOC_mod[t,:,:] = MOC_mod[t,:,:] - MOC_mod[t,:,-1] 
+    MOC_mod[t,:,:] = MOC_mod[t,:,:] - MOC_mod[t,:,-1]
 
 # #######################################################################################
 #  ANALYSIS
