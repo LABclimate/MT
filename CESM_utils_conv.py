@@ -74,8 +74,6 @@ def resample_dens_colwise(var_mgrd, dens, dens_bins, mask='none'):
     
 def resample_1dim_lin(data_mgrd, mgrd, rsgrd):
     '''
-    Assumptions:
-     > mgrd is monotonically increasing.
     Input:
      > data_mgrd: data on old grid (model grid)
      > mgrd:      old grid (model grid)
