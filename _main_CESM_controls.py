@@ -21,6 +21,7 @@ import CESM_utils_transports as utils_transp
 import CESM_utils_MOC as utils_MOC
 import CESM_utils_dMOC as utils_dMOC
 import CESM_utils_BSF as utils_BSF
+import CESM_utils_time as utils_time
 import CESM_paths as paths
 
 # #######################################################################################
@@ -28,8 +29,8 @@ import CESM_paths as paths
 # #######################################################################################
 # ---------------------------------------------------------------------------------------
 # load netcdf file
-fpath='./'
-fname='b40.lm850-1850.1deg.001.pop.h.1279.ann.4.cdf'
+fpath=paths.get_path2data('lm_1deg', 'anndat')
+fname='b40.lm850-1850.1deg.001.pop.h.1499.ann.4.cdf'
 ncdat = xr.open_dataset(fpath+fname, decode_times=False)
 
 # =======================================================================================
@@ -37,7 +38,7 @@ ncdat = xr.open_dataset(fpath+fname, decode_times=False)
 # =======================================================================================
 # ---------------------------------------------------------------------------------------
 # - Spatial auxiliary grid
-auxgrd_name = ['lat395model_zeq60', 'lat198model_zeq60', 'lat170eq80S90N_zeq60', 'lat340eq80S90N_zeq60'][0]       # choose aux grid
+auxgrd_name = ['lat395model_zeq60', 'lat198model_zeq60', 'lat170eq80S90N_zeq60', 'lat340eq80S90N_zeq60'][1]       # choose aux grid
 lat_auxgrd, zT_auxgrd, z_w_top_auxgrd = utils_mask.gen_auxgrd(ncdat, auxgrd_name)
 lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very inappropriate
 # ---------------------------------------------------------------------------------------
@@ -123,17 +124,6 @@ except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_mgrd)
 # #######################################################################################
 #  ANALYSIS
 # #######################################################################################
-
-# time windowing
-
-# select region for Streamfunction indices
-MOCreg2idx = MOC_mgrd_W
-BSFreg2idx = BSF_mgrd.where(BSF_mgrd.TLAT>=45 & BSF_mgrd.TLAT<=70)
-# calculate Streamfunction indices
-MOCidx = utils_ana.calc_MOCidx(MOCreg2idx)
-BSFidx = utils_ana.calc_BSFidx(BSFreg2idx)
-# calculate correlation
-np.corrcoeff
 
 # #######################################################################################
 #  PLOTTING

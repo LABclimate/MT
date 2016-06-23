@@ -163,7 +163,7 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
         for n in iter_lat_ax:
           utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax))
           for j in iter_lat_M:
-            for i in iter_maskcombo[n,j]:                       # limit zonal integration to Atlantic and grid-overlay
+            for i in iter_maskcombo[n,j]:                # limit zonal integration to Atlantic and grid-overlay
               Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
         utils_misc.ProgBar('done')
         
