@@ -33,7 +33,6 @@ import pickle
 import os
 import UTILS_misc as utils_misc
 
-
 # --- Progress Bars ---
 def ProgBar(stage, step=99, nsteps=99,  maxlen = 60, forceinit=False, minbarlen=1):
     '''
