@@ -51,8 +51,7 @@ RHO = ncdat.RHO[0,:,:,:].values*1000-1000   # in-situ density anomaly [SI]
 PD_bins = np.linspace(27,38,200)            # PD_bins = np.linspace(1.004,1.036,65)
 # ---------------------------------------------------------------------------------------
 # - Paths
-path_auxgrd = paths.get_path2var(auxgrd_name)
-utils_misc.checkdir(path_auxgrd)
+path_auxgrd = paths.get_path2var(auxgrd_name, True)
 path_mgrd = 'vars_mgrd/'
 path_dens = 'vars_dens/'
 varname_binning = 'eqbins_{}to{}in{}steps'.format(int(PD_bins.min()), int(PD_bins.max()), int(len(PD_bins)))

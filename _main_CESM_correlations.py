@@ -29,9 +29,10 @@ import CESM_paths as paths
 # =============================================================================
 #  Paths
 # =============================================================================
-path_grd = paths.get_path2vars('grd')
-path_corr = paths.get_path2vars('corr')
-path_figs = paths.get_path2figs('corr')
+path_grd = paths.get_path2vars('grd', mkdir=True)
+path_corr = paths.get_path2vars('corr', mkdir=True)
+path_figs = paths.get_path2figs('corr', mkdir=True)
+
 fpath = paths.get_path2data('lm_1deg', 'anndat')
 fnames = ['b40.lm850-1850.1deg.001.pop.h.{:04d}.ann.4.cdf'.format(i) for i in np.arange(850, 1500)]
 

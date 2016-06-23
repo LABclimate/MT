@@ -6,6 +6,7 @@ Created on Mon Apr 18 15:22:04 2016
 """
 
 import sys
+import UTILS_misc as utils_misc
 
 # ---------------------------------------------------------------------------------------
 # Directories of netCF data
@@ -48,45 +49,63 @@ def get_path2data(runname, key):
     elif runname == 'ctr_2deg':
         try:    return(path_ctr_2deg[key])
         except: sys.exit('Invalid key: ' + key + 'Valid keys are: ' + str(path_ctr_2deg.keys))
+    # Raise error for invalid key
     else: sys.exit('Invalid name for model run')
     
 # ---------------------------------------------------------------------------------------
 # Directories for Variables to be stored
-def get_path2vars(vartype):
+def get_path2vars(vartype, mkdir=False):
     
     vars_root = '/home/buerki/Documents/MT/variables/'
 
     # variables fixed to grid like maxdepths etc.
     if vartype == 'grd':
-        return(vars_root+'vars_grd/')
+        dir = vars_root+'vars_grd/')
     # correlation indices etc...
     elif vartype == 'corr':
-        return(vars_root+'vars_corr/')
+        dir = vars_root+'vars_corr/')
         
     # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
     elif vartype == 'lat170eq80S90N_zeq60': 
-        return(vars_root+'vars_grd/vars_aux_lat170eq80S90N_zeq60/')
+        dir = vars_root+'vars_grd/vars_aux_lat170eq80S90N_zeq60/')
     # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
     elif vartype == 'lat340eq80S90N_zeq60': 
-        return(vars_root+'vars_grd/vars_aux_lat340eq80S90N_zeq60/')
+        dir = vars_root+'vars_grd/vars_aux_lat340eq80S90N_zeq60/')
     # lat: as in ncdat.lat_aux_grid | z: 60 boxes
     elif vartype == 'lat395model_zeq60':
-        return(vars_root+'vars_grd/vars_aux_lat395model_zeq60/')
+        dir = vars_root+'vars_grd/vars_aux_lat395model_zeq60/')
     # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
     elif vartype == 'lat198model_zeq60':
-        return(vars_root+'vars_grd/vars_aux_lat198model_zeq60/')
+        dir = vars_root+'vars_grd/vars_aux_lat198model_zeq60/')
+    # Raise error for invalid key
+    else: sys.exit('Invalid key for path2vars')
 
-
+    # -----------------------------------
+    # return dirname and create directory
+    # -----------------------------------
+    if mkdir == True:
+        utils_misc.mkdir(dirname)
+    return(dirname)
+    
 # ---------------------------------------------------------------------------------------
 # Directories for Variables to be stored
 def get_path2figs(vartype):
     
-    vars_root = '/home/buerki/Documents/MT/figures/'
+    figs_root = '/home/buerki/Documents/MT/figures/'
 
     # dump miscellenian test figures here
     if vartype == 'misc':
-        return(vars_root+'figs_misc/')
+        dir = vars_root+'figs_misc/')
     # correlation indices etc...
     elif vartype == 'corr':
-        return(vars_root+'figs_corr/')
-        
+        dir = vars_root+'figs_corr/')
+    # Raise error for invalid key
+    else: sys.exit('Invalid key for path2vars')
+    
+    # -----------------------------------
+    # return dirname and create directory
+    # -----------------------------------
+    if mkdir == True:
+        utils_misc.mkdir(dirname)
+    return(dirname)
+    
