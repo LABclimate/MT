@@ -7,6 +7,8 @@ Created on Mon Apr 18 15:22:04 2016
 
 import sys
 
+# ---------------------------------------------------------------------------------------
+# Directories of netCF data
 def get_path2data(runname, key):
     
     # pre-industrial last millenium run
@@ -49,17 +51,42 @@ def get_path2data(runname, key):
     else: sys.exit('Invalid name for model run')
     
 # ---------------------------------------------------------------------------------------
-# Directories for Variables named by auxillary grid
-def get_path2var(auxgrd_name):
+# Directories for Variables to be stored
+def get_path2vars(vartype):
+    
+    vars_root = '/home/buerki/Documents/MT/variables/'
+
+    # variables fixed to grid like maxdepths etc.
+    if vartype == 'grd':
+        return(vars_root+'vars_grd/')
+    # correlation indices etc...
+    elif vartype == 'corr':
+        return(vars_root+'vars_corr/')
+        
     # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
-    if auxgrd_name == 'lat170eq80S90N_zeq60': 
-        return('vars_lat170eq80S90N_zeq60/')
+    elif vartype == 'lat170eq80S90N_zeq60': 
+        return(vars_root+'vars_grd/vars_aux_lat170eq80S90N_zeq60/')
     # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
-    elif auxgrd_name == 'lat340eq80S90N_zeq60': 
-        return('vars_lat340eq80S90N_zeq60/')
+    elif vartype == 'lat340eq80S90N_zeq60': 
+        return(vars_root+'vars_grd/vars_aux_lat340eq80S90N_zeq60/')
     # lat: as in ncdat.lat_aux_grid | z: 60 boxes
-    elif auxgrd_name == 'lat395model_zeq60':
-        return('vars_lat395model_zeq60/')
+    elif vartype == 'lat395model_zeq60':
+        return(vars_root+'vars_grd/vars_aux_lat395model_zeq60/')
     # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
-    elif auxgrd_name == 'lat198model_zeq60':
-        return('vars_lat198model_zeq60/')
+    elif vartype == 'lat198model_zeq60':
+        return(vars_root+'vars_grd/vars_aux_lat198model_zeq60/')
+
+
+# ---------------------------------------------------------------------------------------
+# Directories for Variables to be stored
+def get_path2figs(vartype):
+    
+    vars_root = '/home/buerki/Documents/MT/figures/'
+
+    # dump miscellenian test figures here
+    if vartype == 'misc':
+        return(vars_root+'figs_misc/')
+    # correlation indices etc...
+    elif vartype == 'corr':
+        return(vars_root+'figs_corr/')
+        
