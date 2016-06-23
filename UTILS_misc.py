@@ -24,7 +24,7 @@
 #                                        changed toolbox name from utils_spec to utils_misc
 # 31-Mai-2016 - buerki@climate.unibe.ch: inProgBar added auto-calculation of barlength
 #                                        added checkdir()
-# 23-Jun-2016 - buerki@climate.unibe.ch: changed name of checkdir() to mkdir()
+# 23-Jun-2016 - buerki@climate.unibe.ch: changed the name of checkdir() to mkdir()
 #################################
 
 import numpy as np
@@ -32,7 +32,6 @@ import sys
 import pickle
 import os
 import UTILS_misc as utils_misc
-
 
 # --- Progress Bars ---
 def ProgBar(stage, step=99, nsteps=99,  maxlen = 60, forceinit=False, minbarlen=1):
