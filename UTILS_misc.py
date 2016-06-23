@@ -24,6 +24,7 @@
 #                                        changed toolbox name from utils_spec to utils_misc
 # 31-Mai-2016 - buerki@climate.unibe.ch: inProgBar added auto-calculation of barlength
 #                                        added checkdir()
+# 23-Jun-2016 - buerki@climate.unibe.ch: changed name of checkdir() to mkdir()
 #################################
 
 import numpy as np
@@ -90,11 +91,12 @@ def savevar(var, filename):
     print(' --> Success!')      
 
 # --- add directory if unexistant
-def checkdir(dirname):
+def mkdir(dirname):
     if os.path.isdir(dirname)==False:
       os.mkdir(dirname)
-      print(' -> created new directory:' + dirname)
-
+      print(' -> created new directory: ' + dirname)
+    else:
+      print(' -> will use existing directory: ' + dirname)
 
 #################################################################################################
 # COLLECTION OF UNTESTED FUNCTIONS 
