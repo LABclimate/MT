@@ -10,14 +10,14 @@
 #################################
 # - add_cyclic()
 # - project_on_auxgrd()
-# - resample_1dim_lin()
+# - resample_1dim_weightedmean()
 #################################
 # please log your changes below:
 #################################
 # 30-Apr-2016 - buerki@climate.unibe.ch : created this toolbox
 #                                         added add_cyclic()
 # ??          - buerki@climate.unibe.ch : added project_on_auxgrd()
-# 15-Jun-2016 - buerki@climate.unibe.ch : added resample_1dim_lin() (migration from utils_dMOC)
+# 15-Jun-2016 - buerki@climate.unibe.ch : added resample_1dim_weightedmean() (migration from utils_dMOC)
 #################################
 
 import numpy as np
@@ -47,14 +47,14 @@ def project_on_auxgrd(varin, angle):
 # =======================================================================================
 # - resampling data on new grid using linear interpolation (along single dimension)
 # =======================================================================================
-
-def resample_dens_colwise(var_mgrd, dens, dens_bins, mask='none'):
-    ''' uses resample_1dim_lin() 
+def resample_colwise(var_mgrd, dens, dens_bins, method, mask='none'):
+    ''' uses resample_1dim_lin()
     Input:
-     > var_mgrd:   variable on model grid (dens)
-     > dens:       in-situ or potential density
-     > dens_bins:  new (equally spaced) bining of density
-     > mask:       mask of shape [j,i], default: all True (no mask)
+     > var_mgrd:    variable on model grid
+     > dens:        in-situ or potential density
+     > dens_bins:   new (equally spaced) bining of density
+     > method:      string | 'wmean' (for vars like temp etc.) or 'sum' (for transports)
+     > mask:        mask of shape [j,i], default: all True (no mask)
     '''
     print(' > resampling on new density grid')
     # get default for regional mask
@@ -67,12 +67,38 @@ def resample_dens_colwise(var_mgrd, dens, dens_bins, mask='none'):
       utils_misc.ProgBar('step', step=j, nsteps=var_mgrd.shape[1])
       for i in np.arange(var_mgrd.shape[2]):
         if mask[j,i]==True: # skip masked [j,i]-tuples
-          var_rs[:,j,i] = resample_1dim_lin(var_mgrd[:,j,i], dens[:,j,i], dens_bins)
+          if method == 'sum':
+            var_rs[:,j,i] = resample_1dim_sum(var_mgrd[:,j,i], dens[:,j,i], dens_bins)
+          if method == 'wmean':
+            var_rs[:,j,i] = resample_1dim_weightedmean(var_mgrd[:,j,i], dens[:,j,i], dens_bins)
     utils_misc.ProgBar('done')
     
     return(var_rs)
+
     
-def resample_1dim_lin(data_mgrd, mgrd, rsgrd):
+def resample_1dim_sum(data_mgrd, mgrd, rsgrd):
+    '''
+    Input:
+     > data_mgrd: data on old grid (model grid)
+     > mgrd:      old grid (model grid)
+     > rsgrd:     new grid (resampling grid)
+    Output:
+     > data_rsgrd: data on new grid (resampled data)
+    Comments:
+     > not sure whether sum=0 should be overwritten with nans
+    '''
+    
+    # Pre-allocation of data_rsgrd | if rsgrd is longer than mgrd fill tail with nans
+    data_rsgrd = np.zeros(shape = rsgrd.shape-1)
+    
+    # Resampling
+    inds = np.digitize(mgrd, rsgrd)
+    for i in np.arange(1,len(rsgrd)):
+        data_rsgrd[i] = np.sum(data_mgrd[np.where(inds==i)])
+
+    return(data_rsgrd)
+    
+def resample_1dim_weightedmean(data_mgrd, mgrd, rsgrd):
     '''
     Input:
      > data_mgrd: data on old grid (model grid)
@@ -95,7 +121,7 @@ def resample_1dim_lin(data_mgrd, mgrd, rsgrd):
     idxm = 0                                    # index on mgrd
     idxrs = 0                                   # index on rsgrd
     if loopingbehaviour == 'short':
-        while (idxrs < len(rsgrd)-1) & (rsgrd[idxrs] <= np.nanmax(mgrd)): #! another restriction for non-monotonical density
+        while (idxrs < len(rsgrd)-1) & (rsgrd[idxrs] <= np.nanmax(mgrd)): #! restriction for non-monotonical density
           while (idxm < len(mgrd)-1) & (rsgrd[idxrs] > mgrd[idxm]): # jump to closest neighbour
             idxm += 1
           if idxm == 0:                             # border values

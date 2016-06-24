@@ -82,7 +82,7 @@ MW = utils_transp.calc_MW(ncdat)                                                
 
 try:    MW_dens = utils_misc.loadvar(path_dens+'MW_sig2_'+varname_binning)      # load from file
 except:
-    MW_dens = utils_conv.resample_dens_colwise(MW.values, sig2, PD_bins)         # resampled on density axis #! however, it's still the vertical transport!!
+    MW_dens = utils_conv.resample_dens_colwise(MW.values, sig2, 'sum', PD_bins)         # resampled on density axis #! however, it's still the vertical transport!!
     utils_misc.savevar(MW_dens, path_dens+'MW_sig2_'+varname_binning)           # save to file
 
 # ---------------------------------------------------------------------------------------
