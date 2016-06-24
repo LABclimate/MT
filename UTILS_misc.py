@@ -24,7 +24,7 @@
 #                                        changed toolbox name from utils_spec to utils_misc
 # 31-Mai-2016 - buerki@climate.unibe.ch: inProgBar added auto-calculation of barlength
 #                                        added checkdir()
-# 23-Jun-2016 - buerki@climate.unibe.ch: changed name of checkdir() to mkdir()
+# 23-Jun-2016 - buerki@climate.unibe.ch: changed the name of checkdir() to mkdir()
 #################################
 
 import numpy as np

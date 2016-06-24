@@ -60,23 +60,23 @@ def get_path2vars(vartype, mkdir=False):
 
     # variables fixed to grid like maxdepths etc.
     if vartype == 'grd':
-        dir = vars_root+'vars_grd/')
+        dir = vars_root+'vars_grd/'
     # correlation indices etc...
     elif vartype == 'corr':
-        dir = vars_root+'vars_corr/')
+        dir = vars_root+'vars_corr/'
         
     # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
     elif vartype == 'lat170eq80S90N_zeq60': 
-        dir = vars_root+'vars_grd/vars_aux_lat170eq80S90N_zeq60/')
+        dir = vars_root+'vars_grd/vars_aux_lat170eq80S90N_zeq60/'
     # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
     elif vartype == 'lat340eq80S90N_zeq60': 
-        dir = vars_root+'vars_grd/vars_aux_lat340eq80S90N_zeq60/')
+        dir = vars_root+'vars_grd/vars_aux_lat340eq80S90N_zeq60/'
     # lat: as in ncdat.lat_aux_grid | z: 60 boxes
     elif vartype == 'lat395model_zeq60':
-        dir = vars_root+'vars_grd/vars_aux_lat395model_zeq60/')
+        dir = vars_root+'vars_grd/vars_aux_lat395model_zeq60/'
     # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
     elif vartype == 'lat198model_zeq60':
-        dir = vars_root+'vars_grd/vars_aux_lat198model_zeq60/')
+        dir = vars_root+'vars_grd/vars_aux_lat198model_zeq60/'
     # Raise error for invalid key
     else: sys.exit('Invalid key for path2vars')
 
@@ -95,10 +95,10 @@ def get_path2figs(vartype):
 
     # dump miscellenian test figures here
     if vartype == 'misc':
-        dir = vars_root+'figs_misc/')
+        dir = vars_root+'figs_misc/'
     # correlation indices etc...
     elif vartype == 'corr':
-        dir = vars_root+'figs_corr/')
+        dir = vars_root+'figs_corr/'
     # Raise error for invalid key
     else: sys.exit('Invalid key for path2vars')
     
