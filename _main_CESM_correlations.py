@@ -25,6 +25,8 @@ import CESM_utils_BSF as utils_BSF
 import CESM_utils_time as utils_time
 import CESM_utils_analysis as utils_ana
 import CESM_paths as paths
+from IPython.core.debugger import Tracer; debug_here = Tracer()
+
 
 # =============================================================================
 #  Paths

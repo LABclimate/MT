@@ -23,6 +23,7 @@ import CESM_utils_dMOC as utils_dMOC
 import CESM_utils_BSF as utils_BSF
 import CESM_utils_time as utils_time
 import CESM_paths as paths
+from IPython.core.debugger import Tracer; debug_here = Tracer()
 
 # #######################################################################################
 #  GET AND PROCESS DATA
@@ -31,6 +32,10 @@ import CESM_paths as paths
 # load netcdf file
 fpath=paths.get_path2data('lm_1deg', 'anndat')
 fname='b40.lm850-1850.1deg.001.pop.h.1499.ann.4.cdf'
+
+fpath='../../'
+fname='b40.lm850-1850.1deg.001.pop.h.1279.ann.4.cdf'
+
 ncdat = xr.open_dataset(fpath+fname, decode_times=False)
 
 # =======================================================================================
@@ -48,13 +53,15 @@ PT = ncdat.TEMP[0,:,:,:].values             # potential temperature
 CT = gsw.CT_from_pt(SA, PT)                 # conservative temperature
 sig2 = gsw.sigma2(SA, CT)                   # potential density anomaly referenced to 2000dbar
 RHO = ncdat.RHO[0,:,:,:].values*1000-1000   # in-situ density anomaly [SI]
-PD_bins = np.linspace(27,38,200)            # PD_bins = np.linspace(1.004,1.036,65)
+dens_bins = np.linspace(35,38,20)          # dens_bins = np.linspace(1.004,1.036,65)
+dens = 'sig2'                               # bool | choice of density to use for resampling (either RHO or sig2)
 # ---------------------------------------------------------------------------------------
 # - Paths
 path_auxgrd = paths.get_path2vars(auxgrd_name, True)
-path_mgrd = 'vars_mgrd/'
-path_dens = 'vars_dens/'
-varname_binning = 'eqbins_{}to{}in{}steps'.format(int(PD_bins.min()), int(PD_bins.max()), int(len(PD_bins)))
+path_grd = paths.get_path2vars('grd', mkdir=True)
+path_dens = paths.get_path2vars('dens', mkdir=True)
+varname_binning = 'eqbins_{}to{}in{}steps'.format(int(dens_bins.min()), int(dens_bins.max()), int(len(dens_bins)))
+fname_MWdens = 'MW_'+dens+'_'+varname_binning
 
 # =======================================================================================
 #  Variables contained in model output
@@ -80,10 +87,10 @@ MV_mgrd = utils_transp.calc_MV(ncdat)                                           
 MV_projauxgrd = utils_conv.project_on_auxgrd(MV_mgrd, ncdat.ANGLE.values)       # on auxiliary grid
 MW = utils_transp.calc_MW(ncdat)                                                # valid on both grids
 
-try:    MW_dens = utils_misc.loadvar(path_dens+'MW_sig2_'+varname_binning)      # load from file
+try:    MW_dens = utils_misc.loadvar(path_dens+fname_MWdens)      # load from file
 except:
-    MW_dens = utils_conv.resample_dens_colwise(MW.values, sig2, 'sum', PD_bins)         # resampled on density axis #! however, it's still the vertical transport!!
-    utils_misc.savevar(MW_dens, path_dens+'MW_sig2_'+varname_binning)           # save to file
+    MW_dens = utils_conv.resample_colwise(MW.values, sig2, dens_bins, 'sum')    # resampled on density axis #! however, it's still the vertical transport!!
+    utils_misc.savevar(MW_dens, path_dens+fname_MWdens)                         # save to file
 
 # ---------------------------------------------------------------------------------------
 # - Streamfunctions (in Sv)...
@@ -98,13 +105,13 @@ MWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW.
 MOC_auxgrd_W, MOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint_auxgrd, 'forward', path_auxgrd)
  #MVxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MV_projauxgrd.values, ncdat, path_auxgrd)
  #MOC_auxgrd_V, MOC_auxgrd_V_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MVxint_auxgrd, path_auxgrd)
-dMWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, PD_bins, 'dW', MW_dens, ncdat, path_auxgrd)
-dMOC_auxgrd_W, dMOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, PD_bins, 'W', dMWxint_auxgrd, 'forward', path_auxgrd)
+dMWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, dens_bins, 'dW', MW_dens, ncdat, path_auxgrd)
+dMOC_auxgrd_W, dMOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, dens_bins, 'W', dMWxint_auxgrd, 'forward', path_auxgrd)
 
 # ... old stuff with utils_dMOC
- #dMWxint_auxgrd = utils_dMOC.calc_dMxint_auxgrd(lat_auxgrd, zT_auxgrd, 'W', MW.values, sig2, PD_bins, ncdat, path_auxgrd)
- #dMOC_auxgrd_W = utils_dMOC.calc_dMOC_auxgrd(lat_auxgrd, PD_bins, 'W', dMWxint_auxgrd, ncdat, path_auxgrd, do_norm=False)
- #dMOC_mgrd_W, dMxint_mgrd = utils_dMOC.calc_dMOC_mgrd('W', MW.values, sig2, PD_bins, do_norm=False, dump_dMxint=True)
+ #dMWxint_auxgrd = utils_dMOC.calc_dMxint_auxgrd(lat_auxgrd, zT_auxgrd, 'W', MW.values, sig2, dens_bins, ncdat, path_auxgrd)
+ #dMOC_auxgrd_W = utils_dMOC.calc_dMOC_auxgrd(lat_auxgrd, dens_bins, 'W', dMWxint_auxgrd, ncdat, path_auxgrd, do_norm=False)
+ #dMOC_mgrd_W, dMxint_mgrd = utils_dMOC.calc_dMOC_mgrd('W', MW.values, sig2, dens_bins, do_norm=False, dump_dMxint=True)
  #dMOC_mgrd_W_norm = dMOC_mgrd_W - np.tile(dMOC_mgrd_W[:,-1],(384,1)).T
 
 # =======================================================================================
@@ -112,17 +119,15 @@ dMOC_auxgrd_W, dMOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, PD_bin
 # =======================================================================================
 try:    HT_auxgrd_xmax = utils_misc.loadvar(path_auxgrd+'HT_auxgrd_xmax')       # load from file
 except: HT_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'T', path_auxgrd)
-try:    HT_mgrd_xmax = utils_misc.loadvar(path_mgrd+'HT_mgrd_xmax')             # load from file
-except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', path_mgrd)
+try:    HT_mgrd_xmax = utils_misc.loadvar(path_grd+'HT_mgrd_xmax')             # load from file
+except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', path_grd)
 try:    HU_auxgrd_xmax = utils_misc.loadvar(path_auxgrd+'HU_auxgrd_xmax')       # load from file
 except: HU_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'U', path_auxgrd)
-try:    HU_mgrd_xmax = utils_misc.loadvar(path_mgrd+'HU_mgrd_xmax')             # load from file
-except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_mgrd)
+try:    HU_mgrd_xmax = utils_misc.loadvar(path_grd+'HU_mgrd_xmax')             # load from file
+except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_grd)
 
 
-# #######################################################################################
-#  ANALYSIS
-# #######################################################################################
+
 
 # #######################################################################################
 #  PLOTTING
@@ -172,9 +177,9 @@ plt.xlim([-36,90])
  #utils_plt.print2pdf(fig, path_fig+'MOC_mgrd_V')
 # -----------------------------------------------------------------------------------------
 # dMOC on model grid (in Sv)
-fig, ax = utils_plt.plot_MOC(lat_mgrd, PD_bins, dMOC_mgrd_W_norm, nlevels=10, plttype='pcolor+contour')
+fig, ax = utils_plt.plot_MOC(lat_mgrd, dens_bins, dMOC_mgrd_W_norm, nlevels=10, plttype='pcolor+contour')
 plt.title('dMOC mgrd W (sigma2)')
-plt.suptitle('density binning from {} to {} in {} steps'.format(PD_bins.min(), PD_bins.max(), len(PD_bins)))
+plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins.min(), dens_bins.max(), len(dens_bins)))
 plt.xlim([-36,73])
 utils_plt.print2pdf(fig, path_fig+'dMOC_mgrd_W_sig2')
 
@@ -197,9 +202,9 @@ plt.title('MOC auxgrd V')
  #utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_V')
 # -----------------------------------------------------------------------------------------
 # dMOC_auxgrd_W (in Sv)
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, PD_bins, dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour')
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins, dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor')
 plt.title('dMOC auxgrd W (sigma2)')
-plt.suptitle('density binning from {} to {} in {} steps'.format(PD_bins.min(), PD_bins.max(), len(PD_bins)))
+plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins.min(), dens_bins.max(), len(dens_bins)))
 plt.xlim([-36,90])
 utils_plt.print2pdf(fig, path_fig+'dMOC_auxgrd_W_sig2')
 # -----------------------------------------------------------------------------------------

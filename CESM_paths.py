@@ -3,6 +3,7 @@
 Created on Mon Apr 18 15:22:04 2016
 
 @author: buerki@climate.unibe.ch
+foo
 """
 
 import sys
@@ -50,35 +51,42 @@ def get_path2data(runname, key):
         try:    return(path_ctr_2deg[key])
         except: sys.exit('Invalid key: ' + key + 'Valid keys are: ' + str(path_ctr_2deg.keys))
     # Raise error for invalid key
-    else: sys.exit('Invalid name for model run')
+    else: 
+        sys.exit('Invalid name for model run')
+        return()
     
 # ---------------------------------------------------------------------------------------
 # Directories for Variables to be stored
 def get_path2vars(vartype, mkdir=False):
     
-    vars_root = '/home/buerki/Documents/MT/variables/'
+    vars_root = '../variables/'
 
     # variables fixed to grid like maxdepths etc.
     if vartype == 'grd':
-        dir = vars_root+'vars_grd/'
+        dirname = vars_root+'vars_grd/'
+    # variables resampled on densityaxis
+    elif vartype == 'dens':
+        dirname = vars_root+'vars_dens/'
     # correlation indices etc...
     elif vartype == 'corr':
-        dir = vars_root+'vars_corr/'
+        dirname = vars_root+'vars_corr/'
         
     # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
     elif vartype == 'lat170eq80S90N_zeq60': 
-        dir = vars_root+'vars_grd/vars_aux_lat170eq80S90N_zeq60/'
+        dirname = vars_root+'vars_grd/vars_aux_lat170eq80S90N_zeq60/'
     # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
     elif vartype == 'lat340eq80S90N_zeq60': 
-        dir = vars_root+'vars_grd/vars_aux_lat340eq80S90N_zeq60/'
+        dirname = vars_root+'vars_grd/vars_aux_lat340eq80S90N_zeq60/'
     # lat: as in ncdat.lat_aux_grid | z: 60 boxes
     elif vartype == 'lat395model_zeq60':
-        dir = vars_root+'vars_grd/vars_aux_lat395model_zeq60/'
+        dirname = vars_root+'vars_grd/vars_aux_lat395model_zeq60/'
     # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
     elif vartype == 'lat198model_zeq60':
-        dir = vars_root+'vars_grd/vars_aux_lat198model_zeq60/'
+        dirname = vars_root+'vars_grd/vars_aux_lat198model_zeq60/'
     # Raise error for invalid key
-    else: sys.exit('Invalid key for path2vars')
+    else:
+        sys.exit('Invalid key for path2vars')
+        return()
 
     # -----------------------------------
     # return dirname and create directory
@@ -91,16 +99,18 @@ def get_path2vars(vartype, mkdir=False):
 # Directories for Variables to be stored
 def get_path2figs(vartype):
     
-    figs_root = '/home/buerki/Documents/MT/figures/'
+    figs_root = '../figures/'
 
     # dump miscellenian test figures here
     if vartype == 'misc':
-        dir = vars_root+'figs_misc/'
+        dirname = vars_root+'figs_misc/'
     # correlation indices etc...
     elif vartype == 'corr':
-        dir = vars_root+'figs_corr/'
+        dirname = vars_root+'figs_corr/'
     # Raise error for invalid key
-    else: sys.exit('Invalid key for path2vars')
+    else: 
+        sys.exit('Invalid key for path2vars')
+        return()
     
     # -----------------------------------
     # return dirname and create directory

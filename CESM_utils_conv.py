@@ -22,10 +22,8 @@
 
 import numpy as np
 import xarray as xr
-import CESM_utils_mask as utils_mask
-import CESM_utils_plt as utils_plt
-import CESM_utils_conv as utils_conv
 import UTILS_misc as utils_misc
+from IPython.core.debugger import Tracer; debug_here = Tracer()
 
 # =======================================================================================
 # - add cyclic boundaries along nlon or nlat to prevent gap on pcolorplot
@@ -56,6 +54,7 @@ def resample_colwise(var_mgrd, dens, dens_bins, method, mask='none'):
      > method:      string | 'wmean' (for vars like temp etc.) or 'sum' (for transports)
      > mask:        mask of shape [j,i], default: all True (no mask)
     '''
+    
     print(' > resampling on new density grid')
     # get default for regional mask
     if mask == 'none':
@@ -89,13 +88,19 @@ def resample_1dim_sum(data_mgrd, mgrd, rsgrd):
     '''
     
     # Pre-allocation of data_rsgrd | if rsgrd is longer than mgrd fill tail with nans
-    data_rsgrd = np.zeros(shape = rsgrd.shape-1)
+    data_rsgrd = np.zeros(shape = len(rsgrd))
     
     # Resampling
     inds = np.digitize(mgrd, rsgrd)
     for i in np.arange(1,len(rsgrd)):
-        data_rsgrd[i] = np.sum(data_mgrd[np.where(inds==i)])
+        
+def sumup(data_mgrd, inds, i):
+    data_rsgrd[i] = np.sum(data_mgrd[np.where(inds==i)])
 
+vfunc = np.vectorize(sumup)
+vfunc(data_mgrd, inds, np.arange(1,len(rsgrd)))
+        
+        
     return(data_rsgrd)
     
 def resample_1dim_weightedmean(data_mgrd, mgrd, rsgrd):

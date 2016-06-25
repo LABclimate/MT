@@ -43,8 +43,6 @@ import numpy as np
 import numpy.ma as ma
 import pickle
 import CESM_utils_mask as utils_mask
-import CESM_utils_plt as utils_plt
-import CESM_utils_conv as utils_conv
 import UTILS_misc as utils_misc
 
 # =======================================================================================

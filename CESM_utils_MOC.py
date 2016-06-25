@@ -25,6 +25,7 @@ import xarray as xr
 import pickle
 import CESM_utils_mask as utils_mask
 import UTILS_misc as utils_misc
+from IPython.core.debugger import Tracer; debug_here = Tracer()
 
 # =======================================================================================
 # - MOC on model grid

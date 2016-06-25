@@ -93,8 +93,6 @@ def mkdir(dirname):
     if os.path.isdir(dirname)==False:
       os.mkdir(dirname)
       print(' -> created new directory: ' + dirname)
-    else:
-      print(' -> will use existing directory: ' + dirname)
 
 #################################################################################################
 # COLLECTION OF UNTESTED FUNCTIONS 
