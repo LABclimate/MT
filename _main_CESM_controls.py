@@ -53,7 +53,7 @@ PT = ncdat.TEMP[0,:,:,:].values             # potential temperature
 CT = gsw.CT_from_pt(SA, PT)                 # conservative temperature
 sig2 = gsw.sigma2(SA, CT)                   # potential density anomaly referenced to 2000dbar
 RHO = ncdat.RHO[0,:,:,:].values*1000-1000   # in-situ density anomaly [SI]
-dens_bins = np.linspace(35,38,20)          # dens_bins = np.linspace(1.004,1.036,65)
+dens_bins = np.linspace(35,38,100)          # dens_bins = np.linspace(1.004,1.036,65)
 dens = 'sig2'                               # bool | choice of density to use for resampling (either RHO or sig2)
 # ---------------------------------------------------------------------------------------
 # - Paths
@@ -87,9 +87,11 @@ MV_mgrd = utils_transp.calc_MV(ncdat)                                           
 MV_projauxgrd = utils_conv.project_on_auxgrd(MV_mgrd, ncdat.ANGLE.values)       # on auxiliary grid
 MW = utils_transp.calc_MW(ncdat)                                                # valid on both grids
 
-try:    MW_dens = utils_misc.loadvar(path_dens+fname_MWdens)      # load from file
+try:    MW_dens = utils_misc.loadvar(path_dens+fname_MWdens)                    # load from file
 except:
-    MW_dens = utils_conv.resample_colwise(MW.values, sig2, dens_bins, 'sum')    # resampled on density axis #! however, it's still the vertical transport!!
+    MW_z_t = utils_conv.resample_colwise(MW.values, MW.z_w_top.values, ncdat.z_t.values, method='wmean')    # resampled on centre of T grid
+    MW_dens = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='MW', onlyposgrad='True')  # resampled on density axis #! however, it's still the vertical transport!!
+    
     utils_misc.savevar(MW_dens, path_dens+fname_MWdens)                         # save to file
 
 # ---------------------------------------------------------------------------------------

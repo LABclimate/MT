@@ -60,7 +60,7 @@ def ProgBar(stage, step=99, nsteps=99,  maxlen = 60, forceinit=False, minbarlen=
                 print('\b.'), 				        #! do NOT delete the pending comma!!
                 sys.stdout.flush(),
     elif stage=='done':
-        print('\b.]  Done!')
+        print('\b]  Done!')
 
 '''
 # code for testing

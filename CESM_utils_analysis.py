@@ -35,7 +35,7 @@ def runmean(datain,length,crop):
     return dataout[length:i+1]
   else:
     return dataout
-    
+
 # =======================================================================================
 # - normalization relative to std. norm. distribution
 # =======================================================================================
