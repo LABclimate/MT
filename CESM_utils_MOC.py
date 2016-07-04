@@ -148,7 +148,7 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
     print(len(zd_ax))
     # zonal integration along aux grid
       # ... on depth-axis
-    if (transport_type == 'W') | (transport_type == 'V'):
+    if (transport_type == 'W') or (transport_type == 'V'):
         print('> zonal integration')
         Mxint = np.zeros([len(zd_ax), len(lat_ax)])      # pre-allocation with zeros (np-array like for speed)
         for n in iter_lat_ax:
@@ -158,7 +158,7 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
               Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
         utils_misc.ProgBar('done')
       # ... on density-axis
-    elif (transport_type == 'dW') | (transport_type == 'dV'):
+    elif (transport_type == 'dW') or (transport_type == 'dV'):
         print('> zonal integration')
         Mxint = np.zeros([len(zd_ax), len(lat_ax)])      # pre-allocation with zeros (np-array like for speed)
         for n in iter_lat_ax:

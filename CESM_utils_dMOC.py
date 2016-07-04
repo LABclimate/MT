@@ -102,7 +102,7 @@ def calc_dMxint_auxgrd(lat_auxgrd, z_auxgrd, vel_comp, M, PD, PD_bins, ncdat, pa
       utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd))
       for l in iter_dens:
         for j in iter_lat_M:
-          mask_PD_bins[l,j] = np.where( (PD[:,j,:]>PD_bins[l]) & (PD[:,j,:]<PD_bins[l+1]) ) # depth and longitude
+          mask_PD_bins[l,j] = np.where( (PD[:,j,:]>PD_bins[l]) and (PD[:,j,:]<PD_bins[l+1]) ) # depth and longitude
           for i in iter_maskcombo[n,j]: # limit zonal integration to Atlantic and grid-overlay
             if i in mask_PD_bins[l,j][1]: # combine both masks: for maskcombo and for densitybinning
               try: dMxint[l,n] = np.nansum([dMxint[l,n], M[mask_PD_bins[l,j][0],j,i]])

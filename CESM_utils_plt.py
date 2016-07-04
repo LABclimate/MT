@@ -53,15 +53,20 @@ ml.style.use('bmh')
 # =======================================================================================
 
 # wrapper to draw contour(f) or pcolorplot of any lat-depth/density variable
-def plot_MOC(xvar, yvar, var, nlevels=100, plttype='contour', min = [], max = []):
+def plot_MOC(xvar, yvar, var, nlevels=100, plttype='contour', min = [], max = [], to_newfigure=True, to_subplot=[0,0,0]):
     ''' uses utils_plt.get_cmap()'''
     # colormap
     if min == []:   min = np.floor(np.nanmin(var)) # minimum value of varin
     if max == []:   max = np.ceil(np.nanmax(var))  # maximum value of varin
      #cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis()) # viridis
     cmap = utils_plt.shiftCMap(ml.cm.seismic, midpoint=1-max/(max-min), name='shifted') # shifted blue white red
-    # draw plot in new figure
-    fig = plt.figure()
+    # open new figure
+    if to_newfigure == True:
+        fig = plt.figure()
+    # subplotting
+    if np.sum(to_subplot) > 0:
+        plt.subplot(to_subplot[0],to_subplot[1],to_subplot[2])
+    # draw plot
     if plttype == 'contourf':
         ax = plt.contourf(xvar, yvar, var, cmap=cmap, levels=np.linspace(min, max, nlevels))
     elif plttype == 'contour':
@@ -82,7 +87,9 @@ def plot_MOC(xvar, yvar, var, nlevels=100, plttype='contour', min = [], max = []
    #     plt.yticks(yticks[[int(i) for i in plt.yticks()[0][:-1]]])
 
     plt.text(-10,600000, 'max: {}, min: {}'.format(round(np.nanmax(var),2), round(np.nanmin(var),2)))
-    return(fig, ax)
+    
+    if to_newfigure == True:    return(fig, ax)
+    else:                       return(ax)
 
 # wrapper to draw pcolorplot of any lat-lon variable using Basemap
 def plot_BSF(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='ortho', min = [], max = []):

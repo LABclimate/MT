@@ -40,6 +40,9 @@ ncdat = xr.open_dataset(fpath+fname, decode_times=False)
 #  Transformation on different grids (Density, Spatial auxiliary grid)
 # =======================================================================================
 # ---------------------------------------------------------------------------------------
+# - Mask for Atlantic
+ATLboolmask = utils_mask.get_ATLbools(ncdat.REGION_MASK) # boolean mask
+# ---------------------------------------------------------------------------------------
 # - Spatial auxiliary grid
 auxgrd_name = ['lat395model_zeq60', 'lat198model_zeq60', 'lat170eq80S90N_zeq60', 'lat340eq80S90N_zeq60'][1]       # choose aux grid
 lat_auxgrd, zT_auxgrd, z_w_top_auxgrd = utils_mask.gen_auxgrd(ncdat, auxgrd_name)
@@ -71,17 +74,9 @@ fname_MWdens = 'MW_'+dens_str+'_'+varname_binning
 #  Variables contained in model output
 # =======================================================================================
 # - temperature -------------------------------------------------------------------------
-T = ncdat.TEMP.mean(dim='time').isel(z_t=0)
+T = ncdat.TEMP.mean(dim='time')
 T = utils_mask.mask_ATLANTIC(T, ncdat.REGION_MASK)
-# - in-situ density ---------------------------------------------------------------------
-rho = utils_mask.mask_ATLANTIC(ncdat.RHO.mean(dim='time'), ncdat.REGION_MASK)
-rho = rho.mean(dim='nlon')
-
-
-
-
-
-
+T_dens = utils_conv.resample_colwise(T.values, sig2, dens_bins, method='wmean', fill_value=np.nan, mask=ATLboolmask, sort_ogrd='True')
 
 
 # =======================================================================================
@@ -94,9 +89,9 @@ rho = rho.mean(dim='nlon')
 '''
 # ---------------------------------------------------------------------------------------
 # - Volume transports (in Sv)
+MW_mgrd = utils_transp.calc_MW(ncdat)                                           # on model grid
 MV_mgrd = utils_transp.calc_MV(ncdat)                                           # on model grid
 MV_projauxgrd = utils_conv.project_on_auxgrd(MV_mgrd, ncdat.ANGLE.values)       # on auxiliary grid
-MW_mgrd = utils_transp.calc_MW(ncdat)                                                # valid on both grids
 
 try:    MW_dens = utils_misc.loadvar(path_dens+fname_MWdens)                    # load from file
 except:
@@ -105,18 +100,12 @@ except:
     MW_z_t = utils_conv.resample_colwise(MW_mgrd.values, MW_mgrd.z_w_top.values, ncdat.z_t.values, method='wmean')
     # resampled MW_mgrd on density axis (still pointing in vertical direction)
     # a) weighted mean of closest neighbours around dens_bin values
-    MW_dens_binborders = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='MW', onlyposgrad='True')
-    MW_dens_binborders[np.isnan(MW_dens_binborders)] = 0 # overwrite nans with 0 --> should be done in preallocation already!
+    MW_dens_binborders = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='wmean', fill_value=0, mask = ATLboolmask, sort_ogrd='True')
     # b) integrating the differences in MW_mgrd from the densest waters towards lighter water (assuming that there's no denser sig2 than dens_bins[-1] )
-    MW_dens_diff = np.diff(MW_dens_binborders, axis=0)
+    MW_dens_diff = -1*np.diff(MW_dens_binborders, axis=0) # factor *-1 as MW is upward and diff goes downward
     MW_dens = np.cumsum(MW_dens_diff[::-1], axis=0)[::-1]
     # saving
     utils_misc.savevar(MW_dens, path_dens+fname_MWdens)                         # save to file
-
-
-
-
-
 
 
 
@@ -162,7 +151,9 @@ except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', path_grd)
 #  PLOTTING
 # #######################################################################################
 plt.ion() # enable interactive mode
-path_fig = '../figures/discussion_160701/'
+path_fig = '../figures/post_discussion_160701/'
+
+
 # =======================================================================================
 #  CCSM4 representations
 # =======================================================================================
@@ -236,12 +227,12 @@ plt.title('dMOC auxgrd W (sigma2)')
 plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
 plt.xlim([-36,90])
 utils_plt.print2pdf(fig, path_fig+'dMOC_auxgrd_W_sig2')
+
 # -----------------------------------------------------------------------------------------
 # MWxint_auxgrd
 fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MWxint_auxgrd, nlevels=10, plttype='pcolor+contour')
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.xlim([-36,90])
-plt.title('MWxint auxgrd')
  #utils_plt.print2pdf(fig, 'testfigures/MWxint_auxgrd')
 # -----------------------------------------------------------------------------------------
 # MVxint_auxgrd
@@ -251,6 +242,31 @@ plt.xlim([-36,90])
 plt.title('MVxint auxgrd')
  #utils_plt.print2pdf(fig, 'testfigures/MVxint_auxgrd')
 
+# -----------------------------------------------------------------------------------------
+# COMBINATION of dMWxint_auxgrd and dMOC_auxgrd
+fig = plt.figure()
+plt.subplot(3,1,1)
+ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins[:-1], dMOC_auxgrd_W, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
+ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins_centers, dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour')
+plt.title('MOC on density axis on auxgrd')
+plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
+plt.xlim([-36,90])
+
+plt.subplot(3,1,2)
+ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins[:-1], dMWxint_auxgrd, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
+plt.xlim([-36,90])
+plt.plot(lat_mgrd, np.nanmax(np.nanmax(sig2,0),1), 'm-', label='maximal density (on mgrd)')
+plt.title('MW on density axis longitudinally integrated on auxgrd (in Sv)')
+plt.ylabel('density')
+plt.legend(loc='lower left')
+
+plt.subplot(3,1,3)
+plt.plot(lat_auxgrd, np.nansum(dMWxint_auxgrd,axis=0), '.-k')
+plt.colorbar()
+plt.xlim([-36,90])
+plt.ylabel('sum over whole density-axis (in Sv)')
+plt.xlabel('latitude')
+ #utils_plt.print2pdf(fig, 'testfigures/dMWxint_auxgrd')
 
 
 

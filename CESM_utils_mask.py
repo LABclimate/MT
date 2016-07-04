@@ -9,7 +9,7 @@
 # contained functions:
 #################################
 # - mask_ATLANTIC()
-# - return_ATLANTIC_boolean_mask()
+# - get_ATLbools()
 # - vars2speedup()
 # - gen_auxgrd()
 # - gen_mask_grd_overlay_lat()
@@ -35,7 +35,7 @@
 #                                         created calc_HT_auxgrd_xmax()
 # 31-Mai-2016 - buerki@climate.unibe.ch : in gen_maxiter_depth() changed '<' back to '<='
 # 01-Jun-2016 - buerki@climate.unibe.ch : migrated gen_auxgrd from utils_MOC to utils_mask
-# 15-Jun-2016 - buerki@climate.unibe.ch : added return_ATLANTIC_boolean_mask()
+# 15-Jun-2016 - buerki@climate.unibe.ch : added get_ATLbools()
 # 16-Jun-2016 - buerki@climate.unibe.ch : removed gen_maxiter_depth()
 #################################
 
@@ -62,7 +62,7 @@ def mask_ATLANTIC(varin, mask, outputformat='xr'):
     elif outputformat=='xr':
         return(varin.where(mask>=6))
 
-def return_ATLANTIC_boolean_mask(mask):
+def get_ATLbools(mask):
     return(np.array(mask>=6))
 
 # =======================================================================================
@@ -146,7 +146,7 @@ def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars, savevar=True):
     for n in iter_lat_auxgrd:
       utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
       for j in iter_lat_mgrdT:
-        iter_maskcombo[n,j] = np.where((mask_auxgrd[n,j,:]) & (mask_modgrd[j,:]>=6))[0]
+        iter_maskcombo[n,j] = np.where((mask_auxgrd[n,j,:]) and (mask_modgrd[j,:]>=6))[0]
     utils_misc.ProgBar('done')
 
     if savevar == True:                                         # save to file

@@ -23,6 +23,7 @@
 import numpy as np
 import xarray as xr
 import UTILS_misc as utils_misc
+import sys
 from IPython.core.debugger import Tracer; debug_here = Tracer()
 
 # =======================================================================================
@@ -39,176 +40,157 @@ def add_cyclic(varin,dim='nlon'):
 # - sinusoidal projection of data on auxiliary grid
 # =======================================================================================
 def project_on_auxgrd(varin, angle):
-    ''' angle is measured from positive x-coord on auxgrd to positive x-coord on mgrd. '''
+    ''' angle is measured from positive x-coord on auxgrd to positive x-coord on ogrd. '''
     return(varin*np.cos(angle*np.pi/180))
 
 # =======================================================================================
 # - resampling data on new grid using linear interpolation (along single dimension)
 # =======================================================================================
-def resample_colwise(var_mgrd, mgrd, rsgrd, method, mask='none', onlyposgrad='False'):
+def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', sort_ogrd='True'):
     ''' uses resample_1dim_lin()
     Input:
-     > var_mgrd:    variable on model grid
-     > mgrd:        in-situ or potential density
-     > rsgrd:   new (equally spaced) bining of density
-     > method:      string | 'wmean' (for vars like temp etc.) or 'sum' (for transports)
-     > mask:        mask of shape [j,i], default: all True (no mask)
+     > odat:        data on model grid
+     > ogrd:        old grid
+     > ngrd:        new grid 
+     > method:      string | 'wmean' (weighted mean) or 'sum' (sum over all datapoints within bin on new grid)
+     > fill_value:  float or nan | value used to fill in for requested points outside the range of ogrd.
+     > mask:        mask of densityshape [j,i], default: all True (no mask)
+     > sort_ogrd:   bool |  if True: ogrd (and odat) will be sorted such that ogrd is monotonically increasing (not necess. in strict sense!)
+                            if False: ogrd will be manipulated such that strictly monotonically increasing (brute method, not recommended)
+    Output:
+     > ndat:    resampled data on new grid
     Comments:
-     > there's an ugly workaround for densities where the shape of mgrd is assumed to be [:,j,i]
+     > there's an ugly workaround for densities where the shape of ogrd is assumed to be [:,j,i]
      > add warning if negative gradients occur.
     '''
     
     print(' > columnwise resampling')
-    # get default for regional mask
+
+    # shape of data-array
+    if len(odat.shape)==3:
+      len_j = odat.shape[-2] # assumed to be the second last entry
+      len_i = odat.shape[-1] # assumed to be the last entry
+    elif len(odat.shape)==2:
+      len_j = 1              # set to one, such that j-loop is executed only once.
+      len_i = odat.shape[-1] # assumed to be the last entry
+    elif len(odat.shape)==1:
+      len_j = 1              # set to one, such that j-loop is executed only once.
+      len_i = 1              # set to one, such that i-loop is executed only once.
+
+    # get default for regional mask (i.e. do not mask anything)
     if mask == 'none':
-      mask = np.ones(shape=var_mgrd.shape[1:], dtype=bool)
+      mask = np.ones(shape=[len_j, len_i], dtype=bool)
 
-    # pre-allocation
-    var_rs = np.ones(shape=[len(rsgrd), var_mgrd.shape[1], var_mgrd.shape[2]])*np.nan
+    # expand the shape of ogrd and odat to 3 dimensions (singleton-dimensions are intended)
+    ndim_ogrd = len(ogrd.shape)
+    ndim_odat = len(odat.shape)
+    if ndim_ogrd==1: # 1dim --> 3dim
+      ogrd = np.swapaxes(np.broadcast_to(ogrd, (len_i,len_j,len(ogrd))), 0,-1)
+    elif ndim_ogrd==2: # 2dim --> 3dim
+      sys.exit('case of two-dimensional ogrd is not implemented yet!')
+      
+    if ndim_odat==1: # 1dim --> 3dim
+      odat = np.swapaxes(np.broadcast_to(odat, (len_i,len_j,len(ogrd))), 0,-1)
+    elif ndim_odat==2: # 2dim --> 3dim
+      sys.exit('case of two-dimensional odat is not implemented yet!')
+      
+    # pre-allocation of ndat
+    ndat = fill_value * np.ones(shape=[len(ngrd), len_j, len_i])
+    
     # iteration column wise
-    for j in np.arange(var_mgrd.shape[1]):
-      utils_misc.ProgBar('step', step=j, nsteps=var_mgrd.shape[1])
-      for i in np.arange(var_mgrd.shape[2]):
+    for j in np.arange(len_j):
+      utils_misc.ProgBar('step', step=j, nsteps=len_j)
+      for i in np.arange(len_i):
         if mask[j,i]==True: # skip masked [j,i]-tuples
-          
-          # workaround only for densities #! needs to be changed
-          if len(mgrd.shape)==3:    mgrd_ij = mgrd[:,j,i]
-          elif len(mgrd.shape)==1:  mgrd_ij = mgrd
-
-          # eliminate all neagtive and flat density gradients
-          if onlyposgrad == 'True':
-            if np.any(np.diff(mgrd_ij)<=0):
-              for k in np.arange(1,len(mgrd_ij)):
-                if (mgrd_ij[k] <= mgrd_ij[k-1]):
-                  mgrd_ij[k] = mgrd_ij[k-1]+1e-10
-
-          if method == 'sum': #! doesn't work right now!
-            var_rs[:,j,i] = resample_1dim_sum(var_mgrd[:,j,i], mgrd_ij, rsgrd)
-          elif method == 'MW':
-            var_rs[:,j,i] = resample_1dim_MW(var_mgrd[:,j,i], mgrd_ij, rsgrd)
-          elif method == 'wmean':
-            var_rs[:,j,i] = resample_1dim_weightedmean(var_mgrd[:,j,i], mgrd_ij, rsgrd)
+          #if all(np.isnan(ogrd[:,j,i])): continue #! can be deleted as soon as masks are used
+          ogrd_ji = ogrd[:,j,i]
+          odat_ji = odat[:,j,i]
+          # make ogrd strictly monotoneously increasing
+          if any(np.diff(ogrd_ji)<=0):
+            if sort_ogrd == 'True':
+              # sort ogrd and odat
+              idx_sort = np.argsort(ogrd_ji)
+              ogrd_ji = ogrd_ji[idx_sort]
+              odat_ji = odat_ji[idx_sort]
+            else:
+              # brute method by manipulating ogrd
+              for k in np.arange(1,ogrd.shape[0]):
+                if ogrd_ji[k] <= ogrd_ji[k-1]:
+                  ogrd_ji[k] = ogrd_ji[k-1]+1e-10
+                  
+          # interpolation
+          if method == 'wmean':
+            ndat[:,j,i] = resample_1dim_weightedmean(odat_ji, ogrd_ji, ngrd, fill_value)
+          elif method == 'sum': #! doesn't work right now!
+            ndat[:,j,i] = resample_1dim_sum(odat_ji, ogrd_ji, ngrd, fill_value)            
+            
     utils_misc.ProgBar('done')
-    
-    return(var_rs)
+    return(np.squeeze(ndat))
 
-def resample_1dim_MW(data_mgrd, mgrd, rsgrd):
+    
+def resample_1dim_weightedmean(odat, ogrd, ngrd, fill_value=np.nan):
     '''
     Input:
-     > data_mgrd: data on old grid (model grid)
-     > mgrd:      old grid (model grid)
-     > rsgrd:     new grid (resampling grid)
+     > odat:    data on old grid
+     > ogrd:    old grid
+     > ngrd:    new grid (resampling grid)
     Output:
-     > data_rsgrd: data on new grid (resampled data)
+     > ndat:    data on new grid (resampled data)
     Comments:
-     > #! check < and <= in while loops!!
-    '''
-    # Pre-allocation of data_rsgrd | if rsgrd is longer than mgrd fill tail with nans
-    data_rsgrd = np.ones(shape =rsgrd.shape)*np.nan
-    # reset indices
-    idxm = 0                                    # index on mgrd
-    idxrs = 0                                   # index on rsgrd
-    if any(np.diff(mgrd)<=0): 
-        print('\n\n\n\nfail!!!!!!!!!!!!\n\n\n\n')
-
-    while (idxrs < len(rsgrd)-1) & (rsgrd[idxrs] <= np.nanmax(mgrd)): #! restricted to strictly monotonically increasing density
-      # jump to closest neighbour
-      while (idxm < len(mgrd)-1) & (rsgrd[idxrs] > mgrd[idxm]):
-        idxm += 1
-      # resampling
-      if idxm == 0:                             # border values
-        data_rsgrd[idxrs] = data_mgrd[idxm]
-      else:                                     # centre values
-        diff_1 = mgrd[idxm] - rsgrd[idxrs-1]    # > 0
-        diff_2 = mgrd[idxm] - rsgrd[idxrs]      # > 0
-        diff_total = diff_1 + diff_2            # = mgrd[idxm] - mgrd[idxm-1]
-        # linearly weighted interpolation
-        data_rsgrd[idxrs] = data_mgrd[idxm-1]*diff_2/diff_total + data_mgrd[idxm]*diff_1/diff_total
-      idxrs += 1
-
-    return(data_rsgrd)
-
-    
-    
-    
-def resample_1dim_weightedmean(data_mgrd, mgrd, rsgrd):
-    '''
-    Input:
-     > data_mgrd: data on old grid (model grid)
-     > mgrd:      old grid (model grid)
-     > rsgrd:     new grid (resampling grid)
-    Output:
-     > data_rsgrd: data on new grid (resampled data)
-    Comments:
-     > for 'short' loopingbehaviour the gradient of mgrd MUST be monotoneously increasing.
+     > #! implementation of a sorting algorithm?
      > #! check < and <= in while loops!!
     '''
     
-    # Pre-allocation of data_rsgrd | if rsgrd is longer than mgrd fill tail with nans
-    data_rsgrd = np.ones(shape =rsgrd.shape)*np.nan
-
-    # Find smart Loopingbehaviour
-    if any(np.diff(mgrd)<0):     loopingbehaviour = 'long' # complete looping for mgrd with negative gradients.
-    else:                        loopingbehaviour = 'short'# efficient looping only for monotoneously increasing mgrd.
+    # Pre-allocation of ndat | if ngrd is longer than ogrd fill tail with nans
+    ndat = fill_value * np.ones(shape=ngrd.shape)
 
     # Resampling
-    idxm = 0                                    # index on mgrd
-    idxrs = 0                                   # index on rsgrd
-    if loopingbehaviour == 'short':
-        while (idxrs <= len(rsgrd)-1) & (rsgrd[idxrs] <= np.nanmax(mgrd)): #! restricted to strictly monotonically increasing density
-          while (idxm < len(mgrd)-1) & (rsgrd[idxrs] > mgrd[idxm]): # jump to closest neighbour
-            idxm += 1
-          if idxm == 0:                             # border values
-            data_rsgrd[idxrs] = data_mgrd[idxm]
-          else:                                     # centre values
-            diff_1 = mgrd[idxm] - rsgrd[idxrs-1]    # > 0
-            diff_2 = mgrd[idxm] - rsgrd[idxrs]      # > 0
-            diff_total = diff_1 + diff_2            # = mgrd[idxm] - mgrd[idxm-1]
-            # linearly weighted interpolation
-            data_rsgrd[idxrs] = data_mgrd[idxm-1]*diff_2/diff_total + data_mgrd[idxm]*diff_1/diff_total
-          idxrs += 1
-          
-    elif loopingbehaviour == 'long':
-        while (idxrs <= len(rsgrd)-1):
-          while (idxm < len(mgrd)-1) & (rsgrd[idxrs] > mgrd[idxm]): # jump to closest neighbour
-            idxm += 1
-          if idxm == 0:                             # border values
-            data_rsgrd[idxrs] = data_mgrd[idxm]
-          else:                                     # centre values
-            diff_1 = mgrd[idxm] - rsgrd[idxrs-1]    # > 0
-            diff_2 = mgrd[idxm] - rsgrd[idxrs]      # > 0
-            diff_total = diff_1 + diff_2            # = mgrd[idxm] - mgrd[idxm-1]
-            # linearly weighted interpolation
-            data_rsgrd[idxrs] = data_mgrd[idxm-1]*diff_2/diff_total + data_mgrd[idxm]*diff_1/diff_total
-          idxrs += 1
-          
-    return(data_rsgrd)
+    idxo = 0                                    # index on ogrd
+    idxn = np.where(ngrd>=np.nanmin(ogrd))[0][0]   # index on ngrd
+    
+    # loop through ngrd | stop as soon as remaining ngrd values are all higher than the maximal value of ogrd.
+    while (idxn < len(ngrd)) and (ngrd[idxn] <= np.nanmax(ogrd)):
+      # lift idxo until ogrd is one step further than ngrd.
+      while (idxo < len(ogrd)-1) and (ngrd[idxn] > ogrd[idxo]):
+        idxo += 1
+      # resampling
+      if idxo == 0:                             # border values
+        ndat[idxn] = odat[idxo]
+      else:                                     # centre values
+        diff_1 = -1*(ogrd[idxo-1] - ngrd[idxn]) # positive
+        diff_2 = ogrd[idxo] - ngrd[idxn]        # positive
+        diff_total = diff_1 + diff_2            # = ogrd[idxo] - ogrd[idxo-1]
+        # linearly weighted interpolation
+        ndat[idxn] = odat[idxo-1]*diff_2/diff_total + odat[idxo]*diff_1/diff_total
+      idxn += 1
+     
+    return(ndat)
     
     
     
-#    def resample_1dim_sum(data_mgrd, mgrd, rsgrd):
+#    def resample_1dim_sum(odat, ogrd, ngrd, fill_value=np.nan):
 #        '''
 #        Input:
-#         > data_mgrd: data on old grid (model grid)
-#         > mgrd:      old grid (model grid)
-#         > rsgrd:     new grid (resampling grid)
+#         > odat: data on old grid (model grid)
+#         > ogrd:      old grid (model grid)
+#         > ngrd:     new grid (resampling grid)
 #        Output:
-#         > data_rsgrd: data on new grid (resampled data)
+#         > ndat: data on new grid (resampled data)
 #        Comments:
 #         > not sure whether sum=0 should be overwritten with nans
 #        '''
 #        
-#        # Pre-allocation of data_rsgrd | if rsgrd is longer than mgrd fill tail with nans
-#        data_rsgrd = np.zeros(shape = len(rsgrd))
+#        # Pre-allocation of ndat | if ngrd is longer than ogrd fill tail with nans
+#        ndat = fill_value * np.ones(shape = len(ngrd))
 #        
 #        # Resampling
-#        inds = np.digitize(mgrd, rsgrd)
-#        for i in np.arange(1,len(rsgrd)):
+#        inds = np.digitize(ogrd, ngrd)
+#        for i in np.arange(1,len(ngrd)):
 #            pass #!
 #            
-#    def sumup(data_mgrd, inds, i):
-#        data_rsgrd[i] = np.sum(data_mgrd[np.where(inds==i)])
+#    def sumup(odat, inds, i):
+#        ndat[i] = np.sum(odat[np.where(inds==i)])
 #        vfunc = np.vectorize(sumup)
-#        vfunc(data_mgrd, inds, np.arange(1,len(rsgrd)))        
-#        return(data_rsgrd)
+#        vfunc(odat, inds, np.arange(1,len(ngrd)))        
+#        return(ndat)
     
