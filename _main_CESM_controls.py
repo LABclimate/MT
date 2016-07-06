@@ -109,7 +109,11 @@ except:
     utils_misc.savevar(MW_dens, path_dens+fname_MWdens)                         # save to file
 
 
-
+for j in np.arange(MW_mgrd.shape[-2]):
+    for i in np.arange(MW_mgrd.shape[-1]):
+        if np.any(np.isnan(MW_dens_binborders[:,j,i])):
+            print j,i
+            
 
 
 
