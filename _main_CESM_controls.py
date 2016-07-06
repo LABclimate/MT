@@ -55,7 +55,8 @@ CT = gsw.CT_from_pt(SA, PT)                 # conservative temperature
 sig2 = gsw.sigma2(SA, CT)                   # potential density anomaly referenced to 2000dbar
 RHO = ncdat.RHO[0,:,:,:].values*1000-1000   # in-situ density anomaly [SI]
 #dens_bins = np.linspace(28,42,100)          # dens_bins = np.linspace(1.004,1.036,65)[np.mean(b[i-1:i+1]) for i in np.arange(1,len(b))]
-dens_bins = np.concatenate((np.arange(28,35), np.linspace(35, 38, 50), np.arange(39, 43)))
+#dens_bins = np.concatenate((np.arange(28,35), np.linspace(35, 38, 50), np.arange(39, 43)))
+dens_bins = np.concatenate((np.linspace(28, 33, 11), np.linspace(33, 37.5, 46), np.linspace(39, 43, 9)))
 dens_bins_centers = np.array([np.mean(dens_bins[i-1:i+1]) for i in np.arange(1,len(dens_bins))]) #! reasonable for non-eq-spaced dens_bins?
 dens_str = 'sig2'                               # string | choice of density to use for resampling (either RHO or sig2)
 
@@ -97,13 +98,13 @@ try:    MW_dens = utils_misc.loadvar(path_dens+fname_MWdens)                    
 except:
     print(' > loading failed!')
     # resampled MW_mgrd on centre of T grid
-    MW_z_t = utils_conv.resample_colwise(MW_mgrd.values, MW_mgrd.z_w_top.values, ncdat.z_t.values, method='wmean')
+    MW_z_t = utils_conv.resample_colwise(MW_mgrd.values, MW_mgrd.z_w_top.values, ncdat.z_t.values, method='wmean', mask = ATLboolmask)
     # resampled MW_mgrd on density axis (still pointing in vertical direction)
     # a) weighted mean of closest neighbours around dens_bin values
     MW_dens_binborders = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='wmean', fill_value=0, mask = ATLboolmask, sort_ogrd='True')
     # b) integrating the differences in MW_mgrd from the densest waters towards lighter water (assuming that there's no denser sig2 than dens_bins[-1] )
     MW_dens_diff = -1*np.diff(MW_dens_binborders, axis=0) # factor *-1 as MW is upward and diff goes downward
-    MW_dens = np.cumsum(MW_dens_diff[::-1], axis=0)[::-1]
+    MW_dens = np.cumsum(np.nan_to_num(MW_dens_diff[::-1]), axis=0)[::-1]
     # saving
     utils_misc.savevar(MW_dens, path_dens+fname_MWdens)                         # save to file
 
@@ -146,170 +147,3 @@ except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', path_grd)
 #try:    HU_mgrd_xmax = utils_misc.loadvar(path_grd+'HU_mgrd_xmax')             # load from file
 #except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_grd)
 
-
-# #######################################################################################
-#  PLOTTING
-# #######################################################################################
-plt.ion() # enable interactive mode
-path_fig = '../figures/post_discussion_160701/'
-
-
-# =======================================================================================
-#  CCSM4 representations
-# =======================================================================================
-# -----------------------------------------------------------------------------------------
-# BSF on geographical grid calculated by model
-BSF_model = utils_mask.mask_ATLANTIC(ncdat.BSF.isel(time=0), ncdat.REGION_MASK)
-fig, map = utils_plt.plot_BSF(BSF_model, 'T', nlevels = 10)
-plt.title('BSF model on T grid')
-utils_plt.print2pdf(fig, path_fig+'BSF_model_T')
-# -----------------------------------------------------------------------------------------
-# MOC on geographical grid calculated by model
-MOC_model = ncdat.MOC.isel(time=0, transport_reg=1, moc_comp=0)
-#MOC_model = MOC_model - MOC_model[:,-1] # normalisation
-fig, ax = utils_plt.plot_MOC(MOC_model.lat_aux_grid, MOC_model.moc_z, MOC_model, nlevels=10, plttype='pcolor+contour')
-plt.plot(lat_auxgrd,HT_auxgrd_xmax) 				# plot seafloor
-plt.title('MOC model')
-plt.xlim([-36,90])
-utils_plt.print2pdf(fig, path_fig+'MOC_model')
-
-# =======================================================================================
-#  Calculated on model grid
-# =======================================================================================
-# -----------------------------------------------------------------------------------------
-# BSF on model grid
-fig, map = utils_plt.plot_BSF(BSF_mgrd, 'U', nlevels=100)
-plt.title('BSF mgrd on U grid')
-utils_plt.print2pdf(fig, 'testfigures/BSF_mgrd_U')
-# -----------------------------------------------------------------------------------------
-# MOC_mgrd_W
-fig, ax = utils_plt.plot_MOC(lat_mgrd, ncdat.z_w_top, MOC_mgrd_W, nlevels=10, plttype='pcolor+contour')
-plt.plot(lat_mgrd,HT_mgrd_xmax) 				# plot seafloor #! it's the T-grid!!!
-plt.title('MOC mgrd W')
-plt.xlim([-36,90])
-utils_plt.print2pdf(fig, path_fig+'MOC_mgrd_W')
-# -----------------------------------------------------------------------------------------
-# MOC_mgrd_V
-fig, ax = utils_plt.plot_MOC(lat_mgrd, ncdat.z_t, MOC_mgrd_V, nlevels=100, plttype='pcolor+contour')
-plt.plot(lat_mgrd,HT_mgrd_xmax)				# plot seafloor
-plt.title('MOC mgrd V')
-plt.xlim([-36,90])
- #utils_plt.print2pdf(fig, path_fig+'MOC_mgrd_V')
-# -----------------------------------------------------------------------------------------
-# dMOC on model grid (in Sv)
-fig, ax = utils_plt.plot_MOC(lat_mgrd, dens_bins_centers, dMOC_mgrd_W_norm, nlevels=10, plttype='pcolor+contour')
-plt.title('dMOC mgrd W (sigma2)')
-plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
-plt.xlim([-36,73])
-utils_plt.print2pdf(fig, path_fig+'dMOC_mgrd_W_sig2')
-
-# =======================================================================================
-#  Calculated on auxiliary (geographical) grid
-# =======================================================================================
-# -----------------------------------------------------------------------------------------
-# MOC_auxgrd_W
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W, nlevels=10, plttype='pcolor+contour')
-plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
-plt.xlim([-36,90])
-plt.title('MOC auxgrd W')
-utils_plt.print2pdf(fig, path_fig+'MOC_auxgrd_W')
-# -----------------------------------------------------------------------------------------
-# MOC_auxgrd_V
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, zT_auxgrd, MOC_auxgrd_V_norm, nlevels=10, plttype='pcolor+contour')
-plt.plot(lat_auxgrd,HU_auxgrd_xmax)  				# plot seafloor
-plt.xlim([-36,90])
-plt.title('MOC auxgrd V')
- #utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_V')
-# -----------------------------------------------------------------------------------------
-# dMOC_auxgrd_W (in Sv)
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins_centers, dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour')
-plt.title('dMOC auxgrd W (sigma2)')
-plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
-plt.xlim([-36,90])
-utils_plt.print2pdf(fig, path_fig+'dMOC_auxgrd_W_sig2')
-
-# -----------------------------------------------------------------------------------------
-# MWxint_auxgrd
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MWxint_auxgrd, nlevels=10, plttype='pcolor+contour')
-plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
-plt.xlim([-36,90])
- #utils_plt.print2pdf(fig, 'testfigures/MWxint_auxgrd')
-# -----------------------------------------------------------------------------------------
-# MVxint_auxgrd
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, zT_auxgrd, MVxint_auxgrd, nlevels=10, plttype='pcolor+contour')
-plt.plot(lat_auxgrd,HU_auxgrd_xmax)  				# plot seafloor
-plt.xlim([-36,90])
-plt.title('MVxint auxgrd')
- #utils_plt.print2pdf(fig, 'testfigures/MVxint_auxgrd')
-
-# -----------------------------------------------------------------------------------------
-# COMBINATION of dMWxint_auxgrd and dMOC_auxgrd
-fig = plt.figure()
-plt.subplot(3,1,1)
-ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins[:-1], dMOC_auxgrd_W, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
-ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins_centers, dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour')
-plt.title('MOC on density axis on auxgrd')
-plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
-plt.xlim([-36,90])
-
-plt.subplot(3,1,2)
-ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins[:-1], dMWxint_auxgrd, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
-plt.xlim([-36,90])
-plt.plot(lat_mgrd, np.nanmax(np.nanmax(sig2,0),1), 'm-', label='maximal density (on mgrd)')
-plt.title('MW on density axis longitudinally integrated on auxgrd (in Sv)')
-plt.ylabel('density')
-plt.legend(loc='lower left')
-
-plt.subplot(3,1,3)
-plt.plot(lat_auxgrd, np.nansum(dMWxint_auxgrd,axis=0), '.-k')
-plt.colorbar()
-plt.xlim([-36,90])
-plt.ylabel('sum over whole density-axis (in Sv)')
-plt.xlabel('latitude')
- #utils_plt.print2pdf(fig, 'testfigures/dMWxint_auxgrd')
-
-
-
-
-
-
-
-
-
-
-
-
-
-# =======================================================================================
-#  Other variables
-# =======================================================================================
-# -----------------------------------------------------------------------------------------
-# Seafloor
-fig, ax = plt.contourf(ncdat.HT.roll(nlon=54), levels=np.linspace(0,560000,100))
-plt.title('Depth of Seafloor')
-fig, map = utils_plt.pcolor_basemap(MW_mgrd.roll(nlon=54).mean(dim='z_w_top'), 'T', nlevels=100,)
-fig, map = utils_plt.pcolor_basemap(MW_mgrd.roll(nlon=54).mean(dim='z_w_top'), 'T', nlevels=100,)
- #utils_plt.print2pdf(fig, 'testfigures/seafloor')
-# -----------------------------------------------------------------------------------------
-# Temperature
-fig, map = utils_plt.pcolor_basemap(T.roll(nlon=54), 'T', nlevels=100)
-plt.title('Temperature')
- #utils_plt.print2pdf(fig, 'testfigures/temp')
-# -----------------------------------------------------------------------------------------
-# Density
-fig, ax = utils_plt.plot_MOC(ncdat.TLAT[:,0], ncdat.z_t, np.nanmean(sig2, 2), nlevels=10, plttype='contour')
-plt.title('Density')
- #utils_plt.print2pdf(fig, 'density/temp')
-# -----------------------------------------------------------------------------------------
-# MW_mgrd
-fig, map = utils_plt.pcolor_basemap(MW_mgrd.roll(nlon=54).mean(dim='z_w_top'), 'T', nlevels=100,)
-plt.title('MW_mgrd')
- #utils_plt.print2pdf(fig, 'testfigures/MW_mgrd')
-# -----------------------------------------------------------------------------------------
-# ANGLE
-plt.figure()
-plt.pcolor(ncdat.ANGLE*180/np.pi)
-plt.contour(ncdat.REGION_MASK)
-
-fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, MV_projauxgrd[:,:,59])
-fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, ncdat.VVEL[0,:,:,59])

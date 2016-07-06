@@ -18,6 +18,7 @@
 #                                         added add_cyclic()
 # ??          - buerki@climate.unibe.ch : added project_on_auxgrd()
 # 15-Jun-2016 - buerki@climate.unibe.ch : added resample_1dim_weightedmean() (migration from utils_dMOC)
+# 06-Jul-2016 - buerki@climate.unibe.ch : added expand_karray_to_kji()
 #################################
 
 import numpy as np
@@ -25,6 +26,22 @@ import xarray as xr
 import UTILS_misc as utils_misc
 import sys
 from IPython.core.debugger import Tracer; debug_here = Tracer()
+
+
+# =======================================================================================
+# - expand 1d array (in k) to 3 dimensions keeping the input array on first dimension
+# =======================================================================================
+def expand_karray_to_kji(k_array, len_j, len_i):
+    return(np.swapaxes(np.broadcast_to(k_array, (len_i, len_j, len(k_array))), 0,-1))
+
+
+# =======================================================================================
+# - roll np-ji-array along longitude such that Atlantic is in one piece
+# =======================================================================================
+def rollATL(varin):
+    return(np.roll(varin, 54, axis=1))
+
+
 
 # =======================================================================================
 # - add cyclic boundaries along nlon or nlat to prevent gap on pcolorplot
