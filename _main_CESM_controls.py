@@ -103,17 +103,17 @@ except:
     # a) weighted mean of closest neighbours around dens_bin values
     MW_dens_binborders = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='wmean', fill_value=0, mask = ATLboolmask, sort_ogrd='True')
     # b) integrating the differences in MW_mgrd from the densest waters towards lighter water (assuming that there's no denser sig2 than dens_bins[-1] )
-    MW_dens_diff = -1*np.diff(MW_dens_binborders, axis=0) # factor *-1 as MW is upward and diff goes downward
-    MW_dens = np.cumsum(np.nan_to_num(MW_dens_diff[::-1]), axis=0)[::-1]
+    MW_dens_diff = -1*np.diff(np.nan_to_num(MW_dens_binborders), axis=0) # factor *-1 as MW is upward and diff goes downward
+    MW_dens = np.cumsum(MW_dens_diff[::-1], axis=0)[::-1]
     # saving
     utils_misc.savevar(MW_dens, path_dens+fname_MWdens)                         # save to file
 
 
-for j in np.arange(MW_mgrd.shape[-2]):
-    for i in np.arange(MW_mgrd.shape[-1]):
-        if np.any(np.isnan(MW_dens_binborders[:,j,i])):
-            print j,i
-            
+#for j in np.arange(MW_mgrd.shape[-2]):
+#    for i in np.arange(MW_mgrd.shape[-1]):
+#        if np.any(np.isnan(MW_dens_binborders[:,j,i])):
+#            print j,i
+#            
 
 
 

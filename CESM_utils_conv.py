@@ -140,7 +140,10 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
             ndat[:,j,i] = resample_1dim_weightedmean(odat_ji, ogrd_ji, ngrd, fill_value)
           elif method == 'sum': #! doesn't work right now!
             ndat[:,j,i] = resample_1dim_sum(odat_ji, ogrd_ji, ngrd, fill_value)            
-            
+          
+#          if (((np.sum(np.isnan(odat_ji))) == (np.sum(np.isnan(ogrd_ji))))==False):
+#              debug_here()
+          
     utils_misc.ProgBar('done')
     return(np.squeeze(ndat))
 
@@ -180,7 +183,9 @@ def resample_1dim_weightedmean(odat, ogrd, ngrd, fill_value=np.nan):
         # linearly weighted interpolation
         ndat[idxn] = odat[idxo-1]*diff_2/diff_total + odat[idxo]*diff_1/diff_total
       idxn += 1
-     
+      #if np.any(np.isnan(ndat)):
+    #debug_here()
+
     return(ndat)
     
     

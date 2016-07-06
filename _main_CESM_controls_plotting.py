@@ -199,7 +199,7 @@ plt.title('Temp against density')
 # Temp and MWxint against density rsp. density-bins in order to directly compare dens versus depth space
 # -----------------------------------------------------------------------------
 lat = 85
-lon = 51
+lon = 50
 plt.figure()
 plt.subplot(1,2,1)
 plt.suptitle('location: lat={:d} lon={:d}'.format(lat, lon))
@@ -222,22 +222,34 @@ plt.legend(loc='best')
 # -----------------------------------------------------------------------------
 plt.figure()
 plt.subplot(1,2,1)
-plt.suptitle('location: lat={:d} lon={:d}'.format(lat, lon))
+
 delta = np.diff(utils_conv.expand_karray_to_kji(MW_mgrd.z_w_top, T.shape[-2],T.shape[-1]), axis=0)
-T_int = np.nansum(T[:-1]*delta, axis=0)/np.nansum(delta)
-plt.contourf(utils_conv.rollATL(T_int), cmap='Reds')
+delta_sum = np.nansum(delta*(np.isnan(T[:-1,:,:])==False).astype(int), axis=0)
+delta_sum[delta_sum==0] = np.nan
+T_int = np.nansum(T[:-1,:,:]*delta, axis=0) / delta_sum
+
+plt.imshow(utils_conv.rollATL(T_int), cmap='Reds')
 plt.colorbar()
+#plt.contour(utils_conv.rollATL(T_int), cmap='Reds', levels=np.linspace(-5, 30, 5))
 plt.contour(utils_conv.rollATL(ncdat.HT), levels=np.linspace(0,560000,2), cmap='hot') # draw continents
 plt.title('Column integrated Temperature on depth axis')
+ax = plt.gca(); ax.invert_yaxis()
+print(np.nanmin(T_int), np.nanmax(T_int))
 
 plt.subplot(1,2,2)
-plt.suptitle('location: lat={:d} lon={:d}'.format(lat, lon))
-delta = np.diff(utils_conv.expand_karray_to_kji(dens_bins, T.shape[-2],T.shape[-1]), axis=0)
-T_dens_int = np.nansum(T_dens[:-1]*delta, axis=0)/np.nansum(delta)
-plt.contourf(utils_conv.rollATL(T_dens_int), cmap='Reds')
+
+delta = np.diff(utils_conv.expand_karray_to_kji(dens_bins, T_dens.shape[-2],T_dens.shape[-1]), axis=0)
+delta_sum = np.nansum(delta*(np.isnan(T_dens[:-1,:,:])==False).astype(int), axis=0)
+delta_sum[delta_sum==0] = np.nan
+T_dens_int = np.nansum(T_dens[:-1,:,:]*delta, axis=0) / delta_sum
+
+plt.imshow(utils_conv.rollATL(T_dens_int), cmap='Reds')
 plt.colorbar()
+#plt.contour(utils_conv.rollATL(T_dens_int), cmap='Reds', levels=np.linspace(-5, 30, 5))
 plt.contour(utils_conv.rollATL(ncdat.HT), levels=np.linspace(0,560000,2), cmap='hot') # draw continents
 plt.title('Column integrated Temperature on density axis')
+ax = plt.gca(); ax.invert_yaxis()
+print(np.nanmin(T_dens_int), np.nanmax(T_dens_int))
 
 
 
