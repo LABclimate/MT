@@ -88,7 +88,7 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
 
     def fill_gaps(ndat_ji, gaps_border, gaps_center, fill_value):
         ndat_ji[gaps_border] = fill_value
-        #ndat_ji[gaps_center] = fill_value
+        ndat_ji[gaps_center] = fill_value
         return(ndat_ji)
         
     print(' > columnwise resampling')
@@ -252,10 +252,10 @@ def resample_1dim_weightedmean(odat, ogrd, ngrd, fill_value=np.nan):
 #        '''
 #        Input:
 #         > odat: data on old grid (model grid)
-#         > ogrd:      old grid (model grid)
-#         > ngrd:     new grid (resampling grid)
+#         > ogrd:       old grid (model grid)
+#         > ngrd:       new grid (resampling grid)
 #        Output:
-#         > ndat: data on new grid (resampled data)
+#         > ndat:       data on new grid (resampled data)
 #        Comments:
 #         > not sure whether sum=0 should be overwritten with nans
 #        '''
@@ -273,4 +273,4 @@ def resample_1dim_weightedmean(odat, ogrd, ngrd, fill_value=np.nan):
 #        vfunc = np.vectorize(sumup)
 #        vfunc(odat, inds, np.arange(1,len(ngrd)))        
 #        return(ndat)
-    
+#    

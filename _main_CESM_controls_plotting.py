@@ -60,6 +60,8 @@ fig, ax = utils_plt.plot_MOC(lat_mgrd, dens_bins_centers, dMOC_mgrd_W_norm, nlev
 plt.title('dMOC mgrd W (sigma2)')
 plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
 plt.xlim([-36,73])
+plt.yticks(ticks_vol)
+plt.gca().set_yticklabels(ticks_dens)
 utils_plt.print2pdf(fig, path_fig+'dMOC_mgrd_W_sig2')
 
 # =======================================================================================
@@ -85,6 +87,8 @@ fig, ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins_centers, dMOC_auxgrd_W_norm, 
 plt.title('dMOC auxgrd W (sigma2)')
 plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
 plt.xlim([-36,90])
+plt.yticks(ticks_vol)
+plt.gca().set_yticklabels(ticks_dens)
 utils_plt.print2pdf(fig, path_fig+'dMOC_auxgrd_W_sig2')
 
 # -----------------------------------------------------------------------------------------
@@ -136,6 +140,8 @@ ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins[:-1], dMOC_auxgrd_W_norm, nlevels=
 plt.title('MOC on density axis on auxgrd')
 plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
 plt.xlim([-36,90])
+#plt.yticks(ticks_vol)
+#plt.gca().set_yticklabels(ticks_dens)
 
 plt.subplot(3,1,2)
 ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins[:-1], dMWxint_auxgrd, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
@@ -143,6 +149,8 @@ plt.xlim([-36,90])
 plt.plot(lat_mgrd, np.nanmax(np.nanmax(sig2,0),1), 'm-', label='maximal density (on mgrd)')
 plt.title('MW on density axis longitudinally integrated on auxgrd (in Sv)')
 plt.ylabel('density')
+#plt.yticks(ticks_vol)
+#plt.gca().set_yticklabels(ticks_dens)
 plt.legend(loc='lower left')
 
 plt.subplot(3,1,3)
@@ -204,7 +212,7 @@ plt.title('Temp against density')
 # Temp and MWxint against density rsp. density-bins in order to directly compare dens versus depth space
 # -----------------------------------------------------------------------------
 lat = 85
-lon = 50
+lon = 51
 plt.figure()
 plt.subplot(1,2,1)
 plt.suptitle('location: lat={:d} lon={:d}'.format(lat, lon))

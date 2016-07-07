@@ -66,9 +66,18 @@ dens_bins = np.concatenate((np.linspace(28, 33, 11), np.linspace(33.1, 37.5, 45)
 dens_bins_centers = np.array([np.mean(dens_bins[i-1:i+1]) for i in np.arange(1,len(dens_bins))]) #! reasonable for non-eq-spaced dens_bins?
 ddb = utils_ana.canonical_cumsum(np.diff(dens_bins)/2, 2, crop=True)    # layer thickness of density_bins
 ddb_centers = np.diff(dens_bins)                                        # layer thickness from midpoint to midpoint (#! note: it is 1 element longer than ddb)
-dz3d = utils_conv.expand_karray_to_kji(ncdat.dz, sig2.shape[-2], sig2.shape[-1])
-TAREA3d = utils_conv.expand_jiarray_to_kji(ncdat.TAREA, sig2.shape[0])
-dens_hist = np.histogram(sig2, dens_bins)[0]*dz3d*TAREA3d
+# total volume representated by dens_bins
+#! check if and where dens_bins to be replaced by dens_bins_centers
+dz3d = utils_conv.expand_karray_to_kji(ncdat.dz, sig2.shape[-2], sig2.shape[-1])    # in cgs
+TAREA3d = utils_conv.expand_jiarray_to_kji(ncdat.TAREA, sig2.shape[0])              # in cgs
+vol3d = dz3d*TAREA3d                                                                # in cgs
+vol_dbs = np.zeros_like(dens_bins)
+inds = np.digitize(sig2, dens_bins)
+for b in np.arange(len(dens_bins)):
+    vol_dbs[b] = np.sum(vol3d[inds==b])                                             # in cgs
+vol_axis = np.cumsum(vol_dbs) - vol_dbs/2
+ticks_dens = [28, 35, 36, 37, 37.1, 37.2, 37.3]
+ticks_vol = vol_axis[np.in1d(dens_bins, ticks_dens)]
 
 # =======================================================================================
 # Pathnames for temporally stored variables
