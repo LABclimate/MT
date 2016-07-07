@@ -42,7 +42,6 @@ def rollATL(varin):
     return(np.roll(varin, 54, axis=1))
 
 
-
 # =======================================================================================
 # - add cyclic boundaries along nlon or nlat to prevent gap on pcolorplot
 # =======================================================================================
@@ -69,7 +68,7 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
      > odat:        data on model grid
      > ogrd:        old grid
      > ngrd:        new grid 
-     > method:      string | 'wmean' (weighted mean) or 'sum' (sum over all datapoints within bin on new grid)
+     > method:      string | 'wmean' (weighted mean), 'dMW' or 'sum' (sum over all datapoints within bin on new grid)
      > fill_value:  float or nan | value used to fill in for requested points outside the range of ogrd.
      > mask:        mask of densityshape [j,i], default: all True (no mask)
      > sort_ogrd:   bool |  if True: ogrd (and odat) will be sorted such that ogrd is monotonically increasing (not necess. in strict sense!)
@@ -112,16 +111,24 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
       sys.exit('case of two-dimensional odat is not implemented yet!')
       
     # pre-allocation of ndat
-    ndat = fill_value * np.ones(shape=[len(ngrd), len_j, len_i])
-    
-    # iteration column wise
+    if method == 'wmean':
+        ndat = fill_value * np.ones(shape=[len(ngrd), len_j, len_i])
+    elif method == 'dMW':
+        ndat = fill_value * np.ones(shape=[len(ngrd)-1, len_j, len_i])
+        influx_highdens = np.zeros(shape=[len_j, len_i])
+        
+    # loop over columns
     for j in np.arange(len_j):
       utils_misc.ProgBar('step', step=j, nsteps=len_j)
       for i in np.arange(len_i):
         if mask[j,i]==True: # skip masked [j,i]-tuples
-          #if all(np.isnan(ogrd[:,j,i])): continue #! can be deleted as soon as masks are used
+          # reduce ogrd and odat to current column
           ogrd_ji = ogrd[:,j,i]
           odat_ji = odat[:,j,i]
+          # detect disjunct ogrd and ngrd and continue with next column
+          if (np.nanmax(ogrd_ji) < np.nanmin(ngrd)) or (np.nanmax(ngrd) < np.nanmin(ogrd_ji)):
+              print('disjunct ogrd and ngrd at (j,i)=({}, {}). (please check conservation of integrated flux!)'.format(j, i))
+              continue
           # make ogrd strictly monotoneously increasing
           if any(np.diff(ogrd_ji)<=0):
             if sort_ogrd == 'True':
@@ -134,20 +141,50 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
               for k in np.arange(1,ogrd.shape[0]):
                 if ogrd_ji[k] <= ogrd_ji[k-1]:
                   ogrd_ji[k] = ogrd_ji[k-1]+1e-10
-                  
+          
           # interpolation
-          if method == 'wmean':
+          if method == 'wmean': # simple weighted mean interpolation
             ndat[:,j,i] = resample_1dim_weightedmean(odat_ji, ogrd_ji, ngrd, fill_value)
+            
+          elif method == 'dMW': # procedure for dMW
+            # a) weighted mean of closest neighbours around dens_bin border values
+            MW_densbinborderval = resample_1dim_weightedmean(odat_ji, ogrd_ji, ngrd, fill_value)    
+            # b) absolute influx (offset) from high-density.
+            idxn_last = np.where(ngrd <= np.nanmax(ogrd_ji))[0][-1] # last idxn which is smaller than ogrd.max()
+            idco_highdens = np.where(ogrd_ji > ngrd[idxn_last])[0]  # array with all idxo where ogrd is greater than last ngrd
+            # b-1) variant where 1st idxo is taken
+            #influx_highdens[j,i] = odat_ji[idco_highdens[0]]        # first idxo after idxn_last                 
+            # b-2) variant where 2nd idxo is taken
+            #      if this does not exist, influx_highdens is left on zero (preallocation)
+            if len(idco_highdens) > 1:
+              influx_highdens[j,i] = odat_ji[idco_highdens[1]]      # second idxo after idxn_last (the first is already used for interpolation of last ndat.)
+            # c) get differences in MW_mgrd by substracting outflux from influx at each bin
+            MWdiff_densbin = -1*np.diff(MW_densbinborderval)        # factor *-1 as MW is upward and diff goes downward
+
+            # d) cumulative integration from dense to light water starting with influx_highdens as an offset.
+            if np.isnan(fill_value):
+              ndat[:,j,i] = influx_highdens[j,i] + np.cumsum(np.nan_to_num(MWdiff_densbin)[::-1])[::-1]
+            else:
+              ndat[:,j,i] = influx_highdens[j,i] + np.cumsum(MWdiff_densbin[::-1])[::-1]
+
           elif method == 'sum': #! doesn't work right now!
             ndat[:,j,i] = resample_1dim_sum(odat_ji, ogrd_ji, ngrd, fill_value)            
           
 #          if (((np.sum(np.isnan(odat_ji))) == (np.sum(np.isnan(ogrd_ji))))==False):
 #              debug_here()
-          
+     
     utils_misc.ProgBar('done')
-    return(np.squeeze(ndat))
-
     
+    # some statistics
+    if method == 'dMW':
+        print('Statistics on influx_highdens:' \
+              '\n mean:   {}\n median: {}\n min:    {}\n max:    {}'.format(\
+              np.nanmean(influx_highdens), np.nanmedian(influx_highdens), \
+              np.nanmin(influx_highdens), np.nanmax(influx_highdens)))
+
+    return(np.squeeze(ndat)) # remove singleton dimensions (i.e. (1d --> 3d) --> back to 1d)
+
+
 def resample_1dim_weightedmean(odat, ogrd, ngrd, fill_value=np.nan):
     '''
     Input:
@@ -168,9 +205,11 @@ def resample_1dim_weightedmean(odat, ogrd, ngrd, fill_value=np.nan):
     idxo = 0                                    # index on ogrd
     idxn = np.where(ngrd>=np.nanmin(ogrd))[0][0]   # index on ngrd
     
-    # loop through ngrd | stop as soon as remaining ngrd values are all higher than the maximal value of ogrd.
+    # loop through ngrd | conditions: 
+        # (1) loop until the very last enty of ngrd.
+        # (2) stop as soon as remaining ngrd values are all higher than the maximum value of ogrd.
     while (idxn < len(ngrd)) and (ngrd[idxn] <= np.nanmax(ogrd)):
-      # lift idxo until ogrd is one step further than ngrd.
+      # lift idxo until ogrd is one step further (deeper, i.e. higher value) than ngrd.
       while (idxo < len(ogrd)-1) and (ngrd[idxn] > ogrd[idxo]):
         idxo += 1
       # resampling
@@ -183,9 +222,7 @@ def resample_1dim_weightedmean(odat, ogrd, ngrd, fill_value=np.nan):
         # linearly weighted interpolation
         ndat[idxn] = odat[idxo-1]*diff_2/diff_total + odat[idxo]*diff_1/diff_total
       idxn += 1
-      #if np.any(np.isnan(ndat)):
-    #debug_here()
-
+      
     return(ndat)
     
     

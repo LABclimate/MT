@@ -1,8 +1,13 @@
+'''
+CESM controls --> plotting routines
 
-# #######################################################################################
-#  PLOTTING
-# #######################################################################################
+@author: buerki@climate.unibe.ch
+TODO: 	 add '.values' where possible to speed up code.
 
+'''
+import matplotlib.pyplot as plt
+import matplotlib as ml
+import CESM_utils_plt as utils_plt
 
 plt.ion() # enable interactive mode
 path_fig = '../figures/post_discussion_160701/'
@@ -96,32 +101,6 @@ plt.xlim([-36,90])
 plt.title('MVxint auxgrd')
  #utils_plt.print2pdf(fig, 'testfigures/MVxint_auxgrd')
 
-# -----------------------------------------------------------------------------------------
-# COMBINATION of dMWxint_auxgrd and dMOC_auxgrd
-fig = plt.figure()
-plt.subplot(3,1,1)
-ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins[:-1], dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
-plt.title('MOC on density axis on auxgrd')
-plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
-plt.xlim([-36,90])
-
-plt.subplot(3,1,2)
-ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins[:-1], dMWxint_auxgrd, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
-plt.xlim([-36,90])
-plt.plot(lat_mgrd, np.nanmax(np.nanmax(sig2,0),1), 'm-', label='maximal density (on mgrd)')
-plt.title('MW on density axis longitudinally integrated on auxgrd (in Sv)')
-plt.ylabel('density')
-plt.legend(loc='lower left')
-
-plt.subplot(3,1,3)
-plt.plot(lat_auxgrd, np.nansum(dMWxint_auxgrd,axis=0), '.-k')
-plt.colorbar()
-plt.xlim([-36,90])
-plt.ylabel('sum over whole density-axis (in Sv)')
-plt.xlabel('latitude')
- #utils_plt.print2pdf(fig, 'testfigures/dMWxint_auxgrd')
-
-
 
 # -----------------------------------------------------------------------------------------
 # COMBINATION of MWxint_auxgrd and MOC_auxgrd
@@ -142,6 +121,32 @@ plt.ylabel('depth')
 
 plt.subplot(3,1,3)
 plt.plot(lat_auxgrd, np.nansum(MWxint_auxgrd,axis=0), '.-k')
+plt.colorbar()
+plt.xlim([-36,90])
+plt.ylabel('sum over whole density-axis (in Sv)')
+plt.xlabel('latitude')
+ #utils_plt.print2pdf(fig, 'testfigures/dMWxint_auxgrd')
+
+
+# -----------------------------------------------------------------------------------------
+# COMBINATION of dMWxint_auxgrd and dMOC_auxgrd
+fig = plt.figure()
+plt.subplot(3,1,1)
+ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins[:-1], dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
+plt.title('MOC on density axis on auxgrd')
+plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
+plt.xlim([-36,90])
+
+plt.subplot(3,1,2)
+ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins[:-1], dMWxint_auxgrd, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
+plt.xlim([-36,90])
+plt.plot(lat_mgrd, np.nanmax(np.nanmax(sig2,0),1), 'm-', label='maximal density (on mgrd)')
+plt.title('MW on density axis longitudinally integrated on auxgrd (in Sv)')
+plt.ylabel('density')
+plt.legend(loc='lower left')
+
+plt.subplot(3,1,3)
+plt.plot(lat_auxgrd, np.nansum(dMWxint_auxgrd,axis=0), '.-k')
 plt.colorbar()
 plt.xlim([-36,90])
 plt.ylabel('sum over whole density-axis (in Sv)')
@@ -220,36 +225,131 @@ plt.legend(loc='best')
 # -----------------------------------------------------------------------------
 # horizontal plot of Temperatures columnwise integrated over depth/density axis
 # -----------------------------------------------------------------------------
+
+# - TEMPERATURE
 plt.figure()
+
+T_int = utils_ana.integrate_along_dens(T, ncdat.dz)
+T_dens_int = utils_ana.integrate_along_dens(T_dens[1:-1], ddb)
+min_T = np.nanmin([T_int, T_dens_int])
+max_T = np.nanmax([T_int, T_dens_int])
+cmap_T = utils_plt.shiftCMap(ml.cm.seismic, midpoint = 1-max_T/(max_T-min_T), name='shifted')
+
+# - plotting
+plt.suptitle('Values integrated over columns')
 plt.subplot(1,2,1)
-
-delta = np.diff(utils_conv.expand_karray_to_kji(MW_mgrd.z_w_top, T.shape[-2],T.shape[-1]), axis=0)
-delta_sum = np.nansum(delta*(np.isnan(T[:-1,:,:])==False).astype(int), axis=0)
-delta_sum[delta_sum==0] = np.nan
-T_int = np.nansum(T[:-1,:,:]*delta, axis=0) / delta_sum
-
-plt.imshow(utils_conv.rollATL(T_int), cmap='Reds')
+plt.imshow(utils_conv.rollATL(T_int), cmap=cmap_T, clim = [min_T, max_T])
 plt.colorbar()
 #plt.contour(utils_conv.rollATL(T_int), cmap='Reds', levels=np.linspace(-5, 30, 5))
 plt.contour(utils_conv.rollATL(ncdat.HT), levels=np.linspace(0,560000,2), cmap='hot') # draw continents
-plt.title('Column integrated Temperature on depth axis')
+plt.title('Temperature on depth axis')
 ax = plt.gca(); ax.invert_yaxis()
 print(np.nanmin(T_int), np.nanmax(T_int))
 
 plt.subplot(1,2,2)
-
-delta = np.diff(utils_conv.expand_karray_to_kji(dens_bins, T_dens.shape[-2],T_dens.shape[-1]), axis=0)
-delta_sum = np.nansum(delta*(np.isnan(T_dens[:-1,:,:])==False).astype(int), axis=0)
-delta_sum[delta_sum==0] = np.nan
-T_dens_int = np.nansum(T_dens[:-1,:,:]*delta, axis=0) / delta_sum
-
-plt.imshow(utils_conv.rollATL(T_dens_int), cmap='Reds')
+plt.imshow(utils_conv.rollATL(T_dens_int), cmap=cmap_T, clim = [min_T, max_T])
 plt.colorbar()
 #plt.contour(utils_conv.rollATL(T_dens_int), cmap='Reds', levels=np.linspace(-5, 30, 5))
 plt.contour(utils_conv.rollATL(ncdat.HT), levels=np.linspace(0,560000,2), cmap='hot') # draw continents
-plt.title('Column integrated Temperature on density axis')
+plt.title('Temperature on density axis')
 ax = plt.gca(); ax.invert_yaxis()
 print(np.nanmin(T_dens_int), np.nanmax(T_dens_int))
+
+# - Transports
+plt.figure()
+
+MW_int = utils_ana.integrate_along_dens(MW_mgrd, ncdat.dzw)
+MW_dens_int = utils_ana.integrate_along_dens(MW_dens, ddb_centers)
+min_MW = np.nanmin([MW_int, MW_dens_int])
+max_MW = np.nanmax([MW_int, MW_dens_int])
+cmap_MW = utils_plt.shiftCMap(ml.cm.seismic, midpoint = 1-max_MW/(max_MW-min_MW), name='shifted')
+
+plt.subplot(1,2,1)
+plt.imshow(utils_conv.rollATL(MW_int), cmap=cmap_MW, clim = [min_MW, max_MW])
+plt.colorbar()
+#plt.contour(utils_conv.rollATL(MW_int), cmap='Reds', levels=np.linspace(-5, 30, 5))
+plt.contour(utils_conv.rollATL(ncdat.HT), levels=np.linspace(0,560000,2), cmap='hot') # draw continents
+plt.title('MW on depth axis')
+ax = plt.gca(); ax.invert_yaxis()
+print(np.nanmin(MW_int), np.nanmax(MW_int))
+
+plt.subplot(1,2,2)
+plt.imshow(utils_conv.rollATL(MW_dens_int), cmap=cmap_MW, clim = [min_MW, max_MW])
+plt.colorbar()
+#plt.contour(utils_conv.rollATL(MW_dens_int), cmap='Reds', levels=np.linspace(-5, 30, 5))
+#plt.contour(utils_conv.rollATL(ncdat.HT), levels=np.linspace(0,560000,2), cmap='hot') # draw continents
+plt.title('MW on density axis')
+ax = plt.gca(); ax.invert_yaxis()
+print(np.nanmin(MW_dens_int), np.nanmax(MW_dens_int))
+
+
+
+
+# -----------------------------------------------------------------------------
+# horizontal plot of Temperatures columnwise integrated over depth/density axis
+# -----------------------------------------------------------------------------
+
+# - TEMPERATURE
+plt.figure()
+
+T_int = utils_ana.integrate_along_dens(T, ncdat.dz)
+T_dens_int = utils_ana.integrate_along_dens(T_dens[1:-1], ddb)
+min_T = np.nanmin([T_int])
+max_T = np.nanmax([T_int])
+cmap_T = utils_plt.shiftCMap(ml.cm.seismic, midpoint = 1-max_T/(max_T-min_T), name='shifted')
+min_T_dens = np.nanmin([T_dens_int])
+max_T_dens = np.nanmax([T_dens_int])
+cmap_T_dens = utils_plt.shiftCMap(ml.cm.seismic, midpoint = 1-max_T_dens/(max_T_dens-min_T_dens), name='shifted')
+
+# - plotting
+plt.suptitle('Values integrated over columns')
+plt.subplot(1,2,1)
+plt.imshow(utils_conv.rollATL(T_int), cmap=cmap_T)
+plt.colorbar()
+#plt.contour(utils_conv.rollATL(T_int), cmap='Reds', levels=np.linspace(-5, 30, 5))
+plt.contour(utils_conv.rollATL(ncdat.HT), levels=np.linspace(0,560000,2), cmap='hot') # draw continents
+plt.title('Temperature on depth axis')
+ax = plt.gca(); ax.invert_yaxis()
+print(np.nanmin(T_int), np.nanmax(T_int))
+
+plt.subplot(1,2,2)
+plt.imshow(utils_conv.rollATL(T_dens_int), cmap=cmap_T_dens)
+plt.colorbar()
+#plt.contour(utils_conv.rollATL(T_dens_int), cmap='Reds', levels=np.linspace(-5, 30, 5))
+plt.contour(utils_conv.rollATL(ncdat.HT), levels=np.linspace(0,560000,2), cmap='hot') # draw continents
+plt.title('Temperature on density axis')
+ax = plt.gca(); ax.invert_yaxis()
+print(np.nanmin(T_dens_int), np.nanmax(T_dens_int))
+
+# - Transports
+plt.figure()
+
+MW_int = utils_ana.integrate_along_dens(MW_mgrd, ncdat.dzw)
+MW_dens_int = utils_ana.integrate_along_dens(MW_dens, ddb_centers)
+min_MW = np.nanmin([MW_int])
+max_MW = np.nanmax([MW_int])
+cmap_MW = utils_plt.shiftCMap(ml.cm.seismic, midpoint = 1-max_MW/(max_MW-min_MW), name='shifted')
+min_MW_dens = np.nanmin([MW_dens_int])
+max_MW_dens = np.nanmax([MW_dens_int])
+cmap_MW_dens = utils_plt.shiftCMap(ml.cm.seismic, midpoint = 1-max_MW_dens/(max_MW_dens-min_MW_dens), name='shifted')
+
+plt.subplot(1,2,1)
+plt.imshow(utils_conv.rollATL(MW_int), cmap=cmap_MW)
+plt.colorbar()
+#plt.contour(utils_conv.rollATL(MW_int), cmap='Reds', levels=np.linspace(-5, 30, 5))
+plt.contour(utils_conv.rollATL(ncdat.HT), levels=np.linspace(0,560000,2), cmap='hot') # draw continents
+plt.title('MW on depth axis')
+ax = plt.gca(); ax.invert_yaxis()
+print(np.nanmin(MW_int), np.nanmax(MW_int))
+
+plt.subplot(1,2,2)
+plt.imshow(utils_conv.rollATL(MW_dens_int), cmap=cmap_MW_dens)
+plt.colorbar()
+#plt.contour(utils_conv.rollATL(MW_dens_int), cmap='Reds', levels=np.linspace(-5, 30, 5))
+plt.contour(utils_conv.rollATL(ncdat.HT), levels=np.linspace(0,560000,2), cmap='hot') # draw continents
+plt.title('MW on density axis')
+ax = plt.gca(); ax.invert_yaxis()
+print(np.nanmin(MW_dens_int), np.nanmax(MW_dens_int))
 
 
 

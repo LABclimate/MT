@@ -21,8 +21,31 @@
 import numpy as np
 import xarray as xr
 import CESM_utils_mask as utils_mask
+import CESM_utils_conv as utils_conv
 import UTILS_misc as utils_misc
 
+
+# =======================================================================================
+# - canonical cumsum with span=n
+# =======================================================================================
+def canonical_cumsum(array, n, crop=False):
+    ''' Input:
+         > array : 1dimensional np-array or list
+         > n     : windowsize (n>0)
+         > crop  : bool | will crop the beginning of the output array, 
+                          where the sum runs over uncomplete window.
+    '''
+    if n<=0: 
+      sys.exis('The windowsize n must be chosen greater than 0!')
+      
+    b = np.cumsum(array)
+    b[n:] = b[n:] - b[:-n]
+    if crop==True:
+      b = b[n-1:]
+      
+    return(b)
+    
+    
 # =======================================================================================
 # - running mean
 # =======================================================================================
@@ -36,6 +59,7 @@ def runmean(datain,length,crop):
   else:
     return dataout
 
+
 # =======================================================================================
 # - normalization relative to std. norm. distribution
 # =======================================================================================
@@ -43,6 +67,7 @@ def runmean(datain,length,crop):
 def normalize(datain):
   dataout = (datain-np.mean(datain))/np.std(datain)
   return dataout
+
 
 # =======================================================================================
 # - detrend
@@ -56,6 +81,7 @@ def detrend(datain,keep_ave):
     return datain - lin_trend + np.mean(datain)
   else:
     return datain - lin_trend
+
 
 # =======================================================================================
 # - cross correlation
@@ -77,3 +103,35 @@ def xcorr(a,b,maxlag):
     #print i, aa.shape, bb.shape
     corr_coeff[i+maxlag] = np.corrcoef(normalize(aa),normalize(bb))[0,1]
   return corr_coeff
+
+    
+# =======================================================================================
+# - integrate 3dim data along density axis and weight with thickness of boxes
+# =======================================================================================
+def integrate_along_dens(dat, delta):
+  # expand delta, the layer-thickness, from 1d to 3d by copying the columns
+  delta = utils_conv.expand_karray_to_kji(delta, dat.shape[-2],dat.shape[-1])
+  # calculate the total thickness of each column for normalisation (only count boxes with non-nan dat value)
+  delta_sum = np.nansum(delta*(np.isnan(dat)==False).astype(int), axis=0)
+  delta_sum[delta_sum==0] = np.nan
+  # weighted sum and normalisation with delta_sum
+  dat_int = np.nansum(dat*delta, axis=0) / delta_sum
+  return(dat_int)
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  

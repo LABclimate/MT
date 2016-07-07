@@ -1,20 +1,25 @@
-"""
-Created on Wed Apr 20 2016
+'''
+CESM controls --> computation routines
 
 @author: buerki@climate.unibe.ch
 TODO: 	 add '.values' where possible to speed up code.
-"""
+
+Variables:
+    BSF: Barotropic Streamfunction
+    MOC: Meridional Overturning Circulation Streamfunction
+    MW:  vertical volume transport
+    MV:  meridional volume transport
+'''
 
 import numpy as np
 import gsw
 from netCDF4 import Dataset
 import xarray as xr
 import pickle
-import matplotlib.pyplot as plt
 import sys
 sys.path.append('/home/buerki/Documents/MT/scripts/')
+import CESM_utils_analysis as utils_ana
 import CESM_utils_mask as utils_mask
-import CESM_utils_plt as utils_plt
 import CESM_utils_conv as utils_conv
 import UTILS_misc as utils_misc
 import CESM_utils_transports as utils_transp
@@ -56,20 +61,24 @@ sig2 = gsw.sigma2(SA, CT)                   # potential density anomaly referenc
 RHO = ncdat.RHO[0,:,:,:].values*1000-1000   # in-situ density anomaly [SI]
 #dens_bins = np.linspace(28,42,100)          # dens_bins = np.linspace(1.004,1.036,65)[np.mean(b[i-1:i+1]) for i in np.arange(1,len(b))]
 #dens_bins = np.concatenate((np.arange(28,35), np.linspace(35, 38, 50), np.arange(39, 43)))
-dens_bins = np.concatenate((np.linspace(28, 33, 11), np.linspace(33, 37.5, 46), np.linspace(39, 43, 9)))
+dens_bins = np.concatenate((np.linspace(28, 33, 11), np.linspace(33.1, 37.5, 45), np.linspace(38, 43, 11)))
+# variables related to density_bins
 dens_bins_centers = np.array([np.mean(dens_bins[i-1:i+1]) for i in np.arange(1,len(dens_bins))]) #! reasonable for non-eq-spaced dens_bins?
-dens_str = 'sig2'                               # string | choice of density to use for resampling (either RHO or sig2)
-
+ddb = utils_ana.canonical_cumsum(np.diff(dens_bins)/2, 2, crop=True)    # layer thickness of density_bins
+ddb_centers = np.diff(dens_bins)                                        # layer thickness from midpoint to midpoint (#! note: it is 1 element longer than ddb)
 
 # =======================================================================================
 # Pathnames for temporally stored variables
 # =======================================================================================
+dens_str = 'sig2'                           # string | choice of density to use for resampling (either RHO or sig2) 
+
 path_auxgrd = paths.get_path2vars(auxgrd_name, True)
 path_grd = paths.get_path2vars('grd', mkdir=True)
 path_dens = paths.get_path2vars('dens', mkdir=True)
 #varname_binning = 'eqbins_{}to{}in{}steps'.format(int(dens_bins.min()), int(dens_bins.max()), int(len(dens_bins)))
 varname_binning = 'spec_{}to{}in{}steps'.format(int(dens_bins.min()), int(dens_bins.max()), int(len(dens_bins)))
 fname_MWdens = 'MW_'+dens_str+'_'+varname_binning
+fname_MWzt = 'MW_z_t'    # MW interpolated on z_t i.e. on T-cell centres
 
 # =======================================================================================
 #  Variables contained in model output
@@ -79,43 +88,25 @@ T = ncdat.TEMP.mean(dim='time')
 T = utils_mask.mask_ATLANTIC(T, ncdat.REGION_MASK)
 T_dens = utils_conv.resample_colwise(T.values, sig2, dens_bins, method='wmean', fill_value=np.nan, mask=ATLboolmask, sort_ogrd='True')
 
-
 # =======================================================================================
 #  Streamfunctions
 # =======================================================================================
-''' BSF: Barotropic Streamfunction
-    MOC: Meridional Overturning Circulation Streamfunction
-    MW:  vertical volume transport
-    MV:  meridional volume transport
-'''
 # ---------------------------------------------------------------------------------------
 # - Volume transports (in Sv)
 MW_mgrd = utils_transp.calc_MW(ncdat)                                           # on model grid
-MV_mgrd = utils_transp.calc_MV(ncdat)                                           # on model grid
-MV_projauxgrd = utils_conv.project_on_auxgrd(MV_mgrd, ncdat.ANGLE.values)       # on auxiliary grid
+MV_mgrd = utils_transp.calc_MV(ncdat)                                          # on model grid
+#MV_projauxgrd = utils_conv.project_on_auxgrd(MV_mgrd, ncdat.ANGLE.values)      # projected on auxiliary grid (same shape as on model grid)
 
+# - conversion on density axis
 try:    MW_dens = utils_misc.loadvar(path_dens+fname_MWdens)                    # load from file
 except:
     print(' > loading failed!')
     # resampled MW_mgrd on centre of T grid
     MW_z_t = utils_conv.resample_colwise(MW_mgrd.values, MW_mgrd.z_w_top.values, ncdat.z_t.values, method='wmean', mask = ATLboolmask)
+    utils_misc.savevar(MW_z_t, path_dens+fname_MWzt)                           # save to file
     # resampled MW_mgrd on density axis (still pointing in vertical direction)
-    # a) weighted mean of closest neighbours around dens_bin values
-    MW_dens_binborders = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='wmean', fill_value=0, mask = ATLboolmask, sort_ogrd='True')
-    # b) integrating the differences in MW_mgrd from the densest waters towards lighter water (assuming that there's no denser sig2 than dens_bins[-1] )
-    MW_dens_diff = -1*np.diff(np.nan_to_num(MW_dens_binborders), axis=0) # factor *-1 as MW is upward and diff goes downward
-    MW_dens = np.cumsum(MW_dens_diff[::-1], axis=0)[::-1]
-    # saving
+    MW_dens = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='dMW', fill_value=0, mask = ATLboolmask, sort_ogrd='True')
     utils_misc.savevar(MW_dens, path_dens+fname_MWdens)                         # save to file
-
-
-#for j in np.arange(MW_mgrd.shape[-2]):
-#    for i in np.arange(MW_mgrd.shape[-1]):
-#        if np.any(np.isnan(MW_dens_binborders[:,j,i])):
-#            print j,i
-#            
-
-
 
 # ---------------------------------------------------------------------------------------
 # - Streamfunctions (in Sv)...
