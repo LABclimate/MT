@@ -19,6 +19,7 @@
 # ??          - buerki@climate.unibe.ch : added project_on_auxgrd()
 # 15-Jun-2016 - buerki@climate.unibe.ch : added resample_1dim_weightedmean() (migration from utils_dMOC)
 # 06-Jul-2016 - buerki@climate.unibe.ch : added expand_karray_to_kji()
+# 07-Jul-2016 - buerki@climate.unibe.ch : added expand_jiarray_to_kji()
 #################################
 
 import numpy as np
@@ -29,11 +30,16 @@ from IPython.core.debugger import Tracer; debug_here = Tracer()
 
 
 # =======================================================================================
-# - expand 1d array (in k) to 3 dimensions keeping the input array on first dimension
+# - expand (copy) 1d array (in k) to 3 dimensions keeping the input array on first dimension
 # =======================================================================================
 def expand_karray_to_kji(k_array, len_j, len_i):
     return(np.swapaxes(np.broadcast_to(k_array, (len_i, len_j, len(k_array))), 0,-1))
 
+# =======================================================================================
+# - expand (copy) 2d array (in j and i) to 3 dimensions
+# =======================================================================================
+def expand_jiarray_to_kji(ji_array, len_k):
+    return(np.broadcast_to(ji_array, (len_k, ji_array.shape[0], ji_array.shape[1])))
 
 # =======================================================================================
 # - roll np-ji-array along longitude such that Atlantic is in one piece
@@ -76,10 +82,15 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
     Output:
      > ndat:    resampled data on new grid
     Comments:
-     > there's an ugly workaround for densities where the shape of ogrd is assumed to be [:,j,i]
      > add warning if negative gradients occur.
+     > #!! for discreapencies at the low- and high-density borders see the comment in resample_1dim_weightedmean().
     '''
-    
+
+    def fill_gaps(ndat_ji, gaps_border, gaps_center, fill_value):
+        ndat_ji[gaps_border] = fill_value
+        #ndat_ji[gaps_center] = fill_value
+        return(ndat_ji)
+        
     print(' > columnwise resampling')
 
     # shape of data-array
@@ -132,23 +143,24 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
           # make ogrd strictly monotoneously increasing
           if any(np.diff(ogrd_ji)<=0):
             if sort_ogrd == 'True':
-              # sort ogrd and odat
+              # sort ogrd and odat (recommended)
               idx_sort = np.argsort(ogrd_ji)
               ogrd_ji = ogrd_ji[idx_sort]
               odat_ji = odat_ji[idx_sort]
             else:
-              # brute method by manipulating ogrd
+              # brute method by manipulating ogrd (not recommended but used by Kwon)
               for k in np.arange(1,ogrd.shape[0]):
                 if ogrd_ji[k] <= ogrd_ji[k-1]:
                   ogrd_ji[k] = ogrd_ji[k-1]+1e-10
           
           # interpolation
           if method == 'wmean': # simple weighted mean interpolation
-            ndat[:,j,i] = resample_1dim_weightedmean(odat_ji, ogrd_ji, ngrd, fill_value)
+            ndat[:,j,i], gaps_border, gaps_center = resample_1dim_weightedmean(odat_ji, ogrd_ji, ngrd, fill_value)
+            ndat[:,j,i] = fill_gaps(ndat[:,j,i], gaps_border, gaps_center, fill_value)
             
           elif method == 'dMW': # procedure for dMW
             # a) weighted mean of closest neighbours around dens_bin border values
-            MW_densbinborderval = resample_1dim_weightedmean(odat_ji, ogrd_ji, ngrd, fill_value)    
+            MW_densbinborderval, gaps_border, gaps_center = resample_1dim_weightedmean(odat_ji, ogrd_ji, ngrd, fill_value=0)
             # b) absolute influx (offset) from high-density.
             idxn_last = np.where(ngrd <= np.nanmax(ogrd_ji))[0][-1] # last idxn which is smaller than ogrd.max()
             idco_highdens = np.where(ogrd_ji > ngrd[idxn_last])[0]  # array with all idxo where ogrd is greater than last ngrd
@@ -160,19 +172,19 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
               influx_highdens[j,i] = odat_ji[idco_highdens[1]]      # second idxo after idxn_last (the first is already used for interpolation of last ndat.)
             # c) get differences in MW_mgrd by substracting outflux from influx at each bin
             MWdiff_densbin = -1*np.diff(MW_densbinborderval)        # factor *-1 as MW is upward and diff goes downward
-
+            gaps_border = gaps_border[:-1] | gaps_border[1:]        # gaps need to changed too ('|' requires no gap on both sides: the very careful way)
+            gaps_center = gaps_center[:-1] | gaps_center[1:]            
             # d) cumulative integration from dense to light water starting with influx_highdens as an offset.
-            if np.isnan(fill_value):
-              ndat[:,j,i] = influx_highdens[j,i] + np.cumsum(np.nan_to_num(MWdiff_densbin)[::-1])[::-1]
-            else:
-              ndat[:,j,i] = influx_highdens[j,i] + np.cumsum(MWdiff_densbin[::-1])[::-1]
+            # --> before and aferwards fill gaps with 0 and fill_value, respectively.
+            
+            MWdiff_densbin = fill_gaps(MWdiff_densbin, gaps_border, gaps_center, fill_value=0)    # mask gaps with 0
+            ndat[:,j,i] = influx_highdens[j,i] + np.cumsum(MWdiff_densbin[::-1])[::-1]                          # cumulative sum
+            ndat[:,j,i] = fill_gaps(ndat[:,j,i], gaps_border, gaps_center, fill_value)                          # mask gaps with fill_value
 
           elif method == 'sum': #! doesn't work right now!
-            ndat[:,j,i] = resample_1dim_sum(odat_ji, ogrd_ji, ngrd, fill_value)            
+            ndat[:,j,i], gaps_border, gaps_center = resample_1dim_sum(odat_ji, ogrd_ji, ngrd, fill_value)            
+            ndat[:,j,i] = fill_gaps(ndat[:,j,i], gaps_border, gaps_center, fill_value)
           
-#          if (((np.sum(np.isnan(odat_ji))) == (np.sum(np.isnan(ogrd_ji))))==False):
-#              debug_here()
-     
     utils_misc.ProgBar('done')
     
     # some statistics
@@ -186,45 +198,54 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
 
 
 def resample_1dim_weightedmean(odat, ogrd, ngrd, fill_value=np.nan):
+    import CESM_utils_analysis as utils_ana
     '''
     Input:
-     > odat:    data on old grid
-     > ogrd:    old grid
-     > ngrd:    new grid (resampling grid)
+     > odat:            data on old grid
+     > ogrd:            old grid
+     > ngrd:            new grid (resampling grid)
     Output:
-     > ndat:    data on new grid (resampled data)
+     > ndat:            data on new grid (resampled data)
+     > gaps_border      bool-array, same shape as ndat | True where ngrd is outside ogrd
+     > gaps_center      bool-array, same shape as ndat | True where resolution of ngrd is higher than resolution of ogrd
     Comments:
-     > #! implementation of a sorting algorithm?
-     > #! check < and <= in while loops!!
+     > #!! implemented, such that both, the low- and the high-value level of ngrd are left blank (i.e. on fill_value)
+       --> for dMW a shift of the cumsumvalues will correct for the high-density border discrepency 
+       and a comparison with the columnwise integrated transport in depth-space for those at the low-density border.
     '''
-    
+
     # Pre-allocation of ndat | if ngrd is longer than ogrd fill tail with nans
     ndat = fill_value * np.ones(shape=ngrd.shape)
-
+    gaps_border = np.zeros(shape=ngrd.shape, dtype=bool)
+    gaps_center = np.zeros(shape=ngrd.shape, dtype=bool)
     # Resampling
-    idxo = 0                                    # index on ogrd
-    idxn = np.where(ngrd>=np.nanmin(ogrd))[0][0]   # index on ngrd
-    
-    # loop through ngrd | conditions: 
-        # (1) loop until the very last enty of ngrd.
-        # (2) stop as soon as remaining ngrd values are all higher than the maximum value of ogrd.
+    idxo = 0                                        # index on ogrd
+    idxo_old = np.nan
+    idxn = np.where(ngrd > np.nanmin(ogrd))[0][0]   # index on ngrd
+    gaps_border[:idxn] = True                       # mark gaps at low-value border 
+    # loop through ngrd: 
+        # cond 1) loop until the very last enty of ngrd.
+        # cond 2) stop as soon as remaining ngrd values are all higher than the maximum value of ogrd.
     while (idxn < len(ngrd)) and (ngrd[idxn] <= np.nanmax(ogrd)):
       # lift idxo until ogrd is one step further (deeper, i.e. higher value) than ngrd.
       while (idxo < len(ogrd)-1) and (ngrd[idxn] > ogrd[idxo]):
         idxo += 1
       # resampling
-      if idxo == 0:                             # border values
-        ndat[idxn] = odat[idxo]
+      if idxo == idxo_old:                      # ngrd-resolution is higher than ogrd-resolution
+        gaps_center[idxn-1:idxn+1] = True       # --> mark idxn and idxn-1 as gaps (the very careful way! #! consider defining minimum span to also mark idxn-1)
+        ndat[idxn] = ndat[idxn-1]               # --> same value as above. These value remains if center-gaps are not masked.
       else:                                     # centre values
-        diff_1 = -1*(ogrd[idxo-1] - ngrd[idxn]) # positive
-        diff_2 = ogrd[idxo] - ngrd[idxn]        # positive
-        diff_total = diff_1 + diff_2            # = ogrd[idxo] - ogrd[idxo-1]
+        diff_1 = -1*(ogrd[idxo-1] - ngrd[idxn]) # --> a positive number
+        diff_2 = ogrd[idxo] - ngrd[idxn]        # --> a positive number
+        diff_total = diff_1 + diff_2            # --> equivalent to ogrd[idxo] - ogrd[idxo-1]
         # linearly weighted interpolation
         ndat[idxn] = odat[idxo-1]*diff_2/diff_total + odat[idxo]*diff_1/diff_total
+      # increase idxn and renew idxo_old
+      idxo_old = idxo                         
       idxn += 1
-      
-    return(ndat)
-    
+
+    gaps_border[idxn:] = True                   # mark gaps at high-value border
+    return(ndat, gaps_border, gaps_center)
     
     
 #    def resample_1dim_sum(odat, ogrd, ngrd, fill_value=np.nan):

@@ -66,6 +66,9 @@ dens_bins = np.concatenate((np.linspace(28, 33, 11), np.linspace(33.1, 37.5, 45)
 dens_bins_centers = np.array([np.mean(dens_bins[i-1:i+1]) for i in np.arange(1,len(dens_bins))]) #! reasonable for non-eq-spaced dens_bins?
 ddb = utils_ana.canonical_cumsum(np.diff(dens_bins)/2, 2, crop=True)    # layer thickness of density_bins
 ddb_centers = np.diff(dens_bins)                                        # layer thickness from midpoint to midpoint (#! note: it is 1 element longer than ddb)
+dz3d = utils_conv.expand_karray_to_kji(ncdat.dz, sig2.shape[-2], sig2.shape[-1])
+TAREA3d = utils_conv.expand_jiarray_to_kji(ncdat.TAREA, sig2.shape[0])
+dens_hist = np.histogram(sig2, dens_bins)[0]*dz3d*TAREA3d
 
 # =======================================================================================
 # Pathnames for temporally stored variables
@@ -105,22 +108,23 @@ except:
     MW_z_t = utils_conv.resample_colwise(MW_mgrd.values, MW_mgrd.z_w_top.values, ncdat.z_t.values, method='wmean', mask = ATLboolmask)
     utils_misc.savevar(MW_z_t, path_dens+fname_MWzt)                           # save to file
     # resampled MW_mgrd on density axis (still pointing in vertical direction)
-    MW_dens = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='dMW', fill_value=0, mask = ATLboolmask, sort_ogrd='True')
+    MW_dens = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='dMW', fill_value=np.nan, mask = ATLboolmask, sort_ogrd='True')
     utils_misc.savevar(MW_dens, path_dens+fname_MWdens)                         # save to file
 
 # ---------------------------------------------------------------------------------------
 # - Streamfunctions (in Sv)...
-# ... on model grid
-BSF_mgrd, MVzint = utils_BSF.calc_BSF_mgrd(MV_mgrd, dump_MVzint=True)
-MOC_mgrd_W, MWxint_mgrd = utils_MOC.calc_MOC_mgrd('W', MW_mgrd, do_norm=True, dump_Mxint=True)
- #MOC_mgrd_V, MVxint_mgrd = utils_MOC.calc_MOC_mgrd('V', MV_projauxgrd, do_norm=True, dump_Mxint=True)
-dMOC_mgrd_W, dMOC_mgrd_W_norm, dMWxint_mgrd = utils_MOC.calc_MOC_mgrd_nparray('W', MW_dens, dump_Mxint=True)
 
-# ... on auxiliary grid
+BSF_mgrd, MVzint = utils_BSF.calc_BSF_mgrd(MV_mgrd, dump_MVzint=True)
+
+MOC_mgrd_W, MWxint_mgrd = utils_MOC.calc_MOC_mgrd('W', MW_mgrd, do_norm=True, dump_Mxint=True)
 MWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW_mgrd.values, ncdat, path_auxgrd)
 MOC_auxgrd_W, MOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint_auxgrd, 'forward', path_auxgrd)
+
+ #MOC_mgrd_V, MVxint_mgrd = utils_MOC.calc_MOC_mgrd('V', MV_projauxgrd, do_norm=True, dump_Mxint=True)
  #MVxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MV_projauxgrd.values, ncdat, path_auxgrd)
  #MOC_auxgrd_V, MOC_auxgrd_V_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MVxint_auxgrd, path_auxgrd)
+
+dMOC_mgrd_W, dMOC_mgrd_W_norm, dMWxint_mgrd = utils_MOC.calc_MOC_mgrd_nparray('W', MW_dens, dump_Mxint=True)
 dMWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, dens_bins_centers, 'dW', MW_dens, ncdat, path_auxgrd)
 dMOC_auxgrd_W, dMOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, dens_bins_centers, 'W', dMWxint_auxgrd, 'forward', path_auxgrd)
 

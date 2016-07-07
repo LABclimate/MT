@@ -110,7 +110,7 @@ def xcorr(a,b,maxlag):
 # =======================================================================================
 def integrate_along_dens(dat, delta):
   # expand delta, the layer-thickness, from 1d to 3d by copying the columns
-  delta = utils_conv.expand_karray_to_kji(delta, dat.shape[-2],dat.shape[-1])
+  delta = utils_conv.expand_karray_to_kji(delta, dat.shape[-2], dat.shape[-1])
   # calculate the total thickness of each column for normalisation (only count boxes with non-nan dat value)
   delta_sum = np.nansum(delta*(np.isnan(dat)==False).astype(int), axis=0)
   delta_sum[delta_sum==0] = np.nan
