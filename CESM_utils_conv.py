@@ -25,6 +25,7 @@
 import numpy as np
 import xarray as xr
 import UTILS_misc as utils_misc
+import CESM_utils_conv as utils_conv
 import sys
 from IPython.core.debugger import Tracer; debug_here = Tracer()
 
@@ -69,7 +70,9 @@ def project_on_auxgrd(varin, angle):
 # - resampling data on new grid using linear interpolation (along single dimension)
 # =======================================================================================
 def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', sort_ogrd='True'):
-    ''' uses resample_1dim_lin()
+    ''' 
+    Uses:
+     > resample_1dim_weightedmean()
     Input:
      > odat:        data on model grid
      > ogrd:        old grid
@@ -112,12 +115,12 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
     ndim_ogrd = len(ogrd.shape)
     ndim_odat = len(odat.shape)
     if ndim_ogrd==1: # 1dim --> 3dim
-      ogrd = np.swapaxes(np.broadcast_to(ogrd, (len_i,len_j,len(ogrd))), 0,-1)
+      ogrd = utils_conv.expand_karray_to_kji(ogrd, len_j, len_i)
     elif ndim_ogrd==2: # 2dim --> 3dim
       sys.exit('case of two-dimensional ogrd is not implemented yet!')
       
     if ndim_odat==1: # 1dim --> 3dim
-      odat = np.swapaxes(np.broadcast_to(odat, (len_i,len_j,len(ogrd))), 0,-1)
+      odat = utils_conv.expand_karray_to_kji(odat, len_j, len_i)
     elif ndim_odat==2: # 2dim --> 3dim
       sys.exit('case of two-dimensional odat is not implemented yet!')
       
@@ -177,12 +180,151 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', s
             # d) cumulative integration from dense to light water starting with influx_highdens as an offset.
             # --> before and aferwards fill gaps with 0 and fill_value, respectively.
             
-            MWdiff_densbin = fill_gaps(MWdiff_densbin, gaps_border, gaps_center, fill_value=0)    # mask gaps with 0
-            ndat[:,j,i] = influx_highdens[j,i] + np.cumsum(MWdiff_densbin[::-1])[::-1]                          # cumulative sum
-            ndat[:,j,i] = fill_gaps(ndat[:,j,i], gaps_border, gaps_center, fill_value)                          # mask gaps with fill_value
+            MWdiff_densbin = fill_gaps(MWdiff_densbin, gaps_border, gaps_center, fill_value=0)  # mask gaps with 0
+            ndat[:,j,i] = influx_highdens[j,i] + np.cumsum(MWdiff_densbin[::-1])[::-1]          # cumulative sum
+            ndat[:,j,i] = fill_gaps(ndat[:,j,i], gaps_border, gaps_center, fill_value)          # mask gaps with fill_value
 
           elif method == 'sum': #! doesn't work right now!
             ndat[:,j,i], gaps_border, gaps_center = resample_1dim_sum(odat_ji, ogrd_ji, ngrd, fill_value)            
+            ndat[:,j,i] = fill_gaps(ndat[:,j,i], gaps_border, gaps_center, fill_value)
+          
+    utils_misc.ProgBar('done')
+    
+    # some statistics
+    if method == 'dMW':
+        print('Statistics on influx_highdens:' \
+              '\n mean:   {}\n median: {}\n min:    {}\n max:    {}'.format(\
+              np.nanmean(influx_highdens), np.nanmedian(influx_highdens), \
+              np.nanmin(influx_highdens), np.nanmax(influx_highdens)))
+
+    return(np.squeeze(ndat)) # remove singleton dimensions (i.e. (1d --> 3d) --> back to 1d)
+
+
+# =======================================================================================
+# - resampling data on new grid using linear interpolation (along single dimension)
+# =======================================================================================
+def resample_colwise_on_zgrd(odat, zogrd, zngrd, method, fill_value=np.nan, mask='none', sort_zngrd='False'):
+    '''
+    Differences to resample_colwise():
+     > zogrd is same everywhere, whereas zngrd changes btw. columns
+    Uses:
+     > resample_1dim_weightedmean()
+    Input:
+     > odat:        data on model grid
+     > zogrd:        old grid
+     > zngrd:        new grid 
+     > method:      string | 'wmean' (weighted mean), 'dMW' or 'sum' (sum over all datapoints within bin on new grid)
+     > fill_value:  float or nan | value used to fill in for requested points outside the range of zogrd.
+     > mask:        mask of densityshape [j,i], default: all True (no mask)
+     > sort_zngrd:   bool |  if True: zogrd (and odat) will be sorted such that zogrd is monotonically increasing (not necess. in strict sense!)
+                            if False: zogrd will be manipulated such that strictly monotonically increasing (brute method, not recommended)
+    Output:
+     > ndat:    resampled data on new grid
+    Comments:
+     > add warning if negative gradients occur.
+     > #!! for discreapencies at the low- and high-density borders see the comment in resample_1dim_weightedmean().
+    '''
+
+    def fill_gaps(ndat_ji, gaps_border, gaps_center, fill_value):
+        ndat_ji[gaps_border] = fill_value
+        #ndat_ji[gaps_center] = fill_value
+        return(ndat_ji)
+        
+    print(' > columnwise resampling')
+
+    # shape of data-array
+    if len(odat.shape)==3:
+      len_j = odat.shape[-2] # assumed to be the second last entry
+      len_i = odat.shape[-1] # assumed to be the last entry
+    elif len(odat.shape)==2:
+      len_j = 1              # set to one, such that j-loop is executed only once.
+      len_i = odat.shape[-1] # assumed to be the last entry
+    elif len(odat.shape)==1:
+      len_j = 1              # set to one, such that j-loop is executed only once.
+      len_i = 1              # set to one, such that i-loop is executed only once.
+
+    # get default for regional mask (i.e. do not mask anything)
+    if mask == 'none':
+      mask = np.ones(shape=[len_j, len_i], dtype=bool)
+
+    # expand the shape of zngrd and odat to 3 dimensions (singleton-dimensions are intended)
+    ndim_zngrd = len(zngrd.shape)
+    ndim_odat = len(odat.shape)
+    if ndim_zngrd==1: # 1dim --> 3dim
+      zngrd = utils_conv.expand_karray_to_kji(zngrd, len_j, len_i)
+    elif ndim_zngrd==2: # 2dim --> 3dim
+      sys.exit('case of two-dimensional zngrd is not implemented yet!')
+      
+    if ndim_odat==1: # 1dim --> 3dim
+      odat = utils_conv.expand_karray_to_kji(odat, len_j, len_i)
+    elif ndim_odat==2: # 2dim --> 3dim
+      sys.exit('case of two-dimensional odat is not implemented yet!')
+      
+    # pre-allocation of ndat
+    if method == 'wmean':
+        ndat = fill_value * np.ones(shape=[zngrd.shape[0], len_j, len_i])
+    elif method == 'dMW':
+        ndat = fill_value * np.ones(shape=[zngrd.shape[0]-1, len_j, len_i])
+        influx_highdens = np.zeros(shape=[len_j, len_i])
+    
+    # loop over columns
+    for j in np.arange(len_j):
+      utils_misc.ProgBar('step', step=j, nsteps=len_j)
+      for i in np.arange(len_i):
+        if mask[j,i]==True: # skip masked [j,i]-tuples
+          # reduce zngrd and odat to current column
+          zngrd_ji = zngrd[:,j,i]
+          odat_ji = odat[:,j,i]
+          # detect disjunct zogrd and zngrd_ji and continue with next column
+          if (np.nanmax(zogrd) < np.nanmin(zngrd_ji)) or (np.nanmax(zngrd_ji) < np.nanmin(zogrd)):
+              print('disjunct zogrd and zngrd at (j,i)=({}, {}). (please check conservation of integrated flux!)'.format(j, i))
+              continue
+          # make zngrd_ji strictly monotoneously increasing
+          if any(np.diff(zngrd_ji)<=0):
+            if sort_zngrd_ji == 'True':
+              # sort zngrd_ji and odat (recommended)
+              idx_sort = np.argsort(zngrd_ji)
+              zngrd_ji = zngrd_ji[idx_sort]
+              odat_ji = odat_ji[idx_sort]
+            else:
+              # brute method by manipulating zngrd_ji (not recommended but used by Kwon)
+              for k in np.arange(1,zngrd_ji.shape[0]):
+                if zngrd_ji[k] <= zngrd_ji[k-1]:
+                  zngrd_ji[k] = zngrd_ji[k-1]+1e-10
+          
+          # interpolation
+          if method == 'wmean': # simple weighted mean interpolation
+            ndat[:,j,i], gaps_border, gaps_center = resample_1dim_weightedmean(odat_ji, zogrd, zngrd_ji, fill_value)
+            ndat[:,j,i] = fill_gaps(ndat[:,j,i], gaps_border, gaps_center, fill_value)
+            
+          elif method == 'dMW': # procedure for dMW
+            # a) weighted mean of closest neighbours around dens_bin border values
+            MW_densbinborderval, gaps_border, gaps_center = resample_1dim_weightedmean(odat_ji, zogrd, zngrd_ji, fill_value=0)
+            # b) absolute influx (offset) from high-density.
+            try: 
+                idxn_last = np.where(zngrd_ji <= np.nanmax(zogrd))[0][-1] # last idxn which is smaller than zogrd.max()
+                idco_highdens = np.where(zogrd > zngrd_ji[idxn_last])[0]  # array with all idxo where zogrd is greater than last zngrd_ji
+                # b-1) variant where 1st idxo is taken
+                #influx_highdens[j,i] = odat_ji[idco_highdens[0]]        # first idxo after idxn_last                 
+                # b-2) variant where 2nd idxo is taken
+                #      if this does not exist, influx_highdens is left on zero (preallocation)
+                if len(idco_highdens) > 1:
+                  influx_highdens[j,i] = odat_ji[idco_highdens[1]]      # second idxo after idxn_last (the first is already used for interpolation of last ndat.)
+            except: 
+                pass #! workaround as it happened that all values in zngrd_ji were nans --> idxn_last could not be found.
+            # c) get differences in MW_mgrd by substracting outflux from influx at each bin
+            MWdiff_densbin = -1*np.diff(MW_densbinborderval)        # factor *-1 as MW is upward and diff goes downward
+            gaps_border = gaps_border[:-1] | gaps_border[1:]        # gaps need to changed too ('|' requires no gap on both sides: the very careful way)
+            gaps_center = gaps_center[:-1] | gaps_center[1:]            
+            # d) cumulative integration from dense to light water starting with influx_highdens as an offset.
+            # --> before and aferwards fill gaps with 0 and fill_value, respectively.
+            
+            MWdiff_densbin = fill_gaps(MWdiff_densbin, gaps_border, gaps_center, fill_value=0)  # mask gaps with 0
+            ndat[:,j,i] = influx_highdens[j,i] + np.cumsum(MWdiff_densbin[::-1])[::-1]          # cumulative sum
+            ndat[:,j,i] = fill_gaps(ndat[:,j,i], gaps_border, gaps_center, fill_value)          # mask gaps with fill_value
+
+          elif method == 'sum': #! doesn't work right now!
+            ndat[:,j,i], gaps_border, gaps_center = resample_1dim_sum(odat_ji, zogrd, zngrd_ji, fill_value)            
             ndat[:,j,i] = fill_gaps(ndat[:,j,i], gaps_border, gaps_center, fill_value)
           
     utils_misc.ProgBar('done')
@@ -221,8 +363,12 @@ def resample_1dim_weightedmean(odat, ogrd, ngrd, fill_value=np.nan):
     # Resampling
     idxo = 0                                        # index on ogrd
     idxo_old = np.nan
-    idxn = np.where(ngrd > np.nanmin(ogrd))[0][0]   # index on ngrd
-    gaps_border[:idxn] = True                       # mark gaps at low-value border 
+    try: 
+        idxn = np.where(ngrd > np.nanmin(ogrd))[0][0]   # index on ngrd
+        gaps_border[:idxn] = True                       # mark gaps at low-value border 
+    except:
+        gaps_border[:] = True                           # mark all points as bordergaps
+        return(ndat, gaps_border, gaps_center)
     # loop through ngrd: 
         # cond 1) loop until the very last enty of ngrd.
         # cond 2) stop as soon as remaining ngrd values are all higher than the maximum value of ogrd.

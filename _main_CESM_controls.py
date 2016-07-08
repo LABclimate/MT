@@ -66,16 +66,25 @@ dens_bins = np.concatenate((np.linspace(28, 33, 11), np.linspace(33.1, 37.5, 45)
 dens_bins_centers = np.array([np.mean(dens_bins[i-1:i+1]) for i in np.arange(1,len(dens_bins))]) #! reasonable for non-eq-spaced dens_bins?
 ddb = utils_ana.canonical_cumsum(np.diff(dens_bins)/2, 2, crop=True)    # layer thickness of density_bins
 ddb_centers = np.diff(dens_bins)                                        # layer thickness from midpoint to midpoint (#! note: it is 1 element longer than ddb)
+# depth of isopycnals (i.e. of density_bins at both staggered grids)
+z_t_3d = utils_conv.expand_karray_to_kji(ncdat.z_t, sig2.shape[-2], sig2.shape[-1])
+zdb = utils_conv.resample_colwise(z_t_3d, sig2, dens_bins, 'wmean', fill_value=np.nan, sort_ogrd='True', mask = ATLboolmask)
+zdbc = utils_conv.resample_colwise(z_t_3d, sig2, dens_bins_centers, 'wmean', fill_value=np.nan, sort_ogrd='True', mask = ATLboolmask)
+
 # total volume representated by dens_bins
 #! check if and where dens_bins to be replaced by dens_bins_centers
 dz3d = utils_conv.expand_karray_to_kji(ncdat.dz, sig2.shape[-2], sig2.shape[-1])    # in cgs
 TAREA3d = utils_conv.expand_jiarray_to_kji(ncdat.TAREA, sig2.shape[0])              # in cgs
 vol3d = dz3d*TAREA3d                                                                # in cgs
-vol_dbs = np.zeros_like(dens_bins)
+vol_dbs_glob = np.zeros(shape=[len(dens_bins)])
+vol_dbs_col = np.zeros(shape=[len(dens_bins), sig2.shape[-2], sig2.shape[-1]])
 inds = np.digitize(sig2, dens_bins)
+
 for b in np.arange(len(dens_bins)):
-    vol_dbs[b] = np.sum(vol3d[inds==b])                                             # in cgs
-vol_axis = np.cumsum(vol_dbs) - vol_dbs/2
+    vol_dbs_glob[b] = np.sum(vol3d[inds==b])            # globally                  # in cgs
+    vol_dbs_col[b] = np.sum(vol3d[inds==b], axis=0)     # column-wise               # in cgs
+# arrays for figures (global)
+vol_axis = np.cumsum(vol_dbs_glob) - vol_dbs_glob/2
 ticks_dens = [28, 35, 36, 37, 37.1, 37.2, 37.3]
 ticks_vol = vol_axis[np.in1d(dens_bins, ticks_dens)]
 
@@ -117,7 +126,8 @@ except:
     MW_z_t = utils_conv.resample_colwise(MW_mgrd.values, MW_mgrd.z_w_top.values, ncdat.z_t.values, method='wmean', mask = ATLboolmask)
     utils_misc.savevar(MW_z_t, path_dens+fname_MWzt)                           # save to file
     # resampled MW_mgrd on density axis (still pointing in vertical direction)
-    MW_dens = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='dMW', fill_value=np.nan, mask = ATLboolmask, sort_ogrd='True')
+#    MW_dens = utils_conv.resample_colwise(MW_z_t, sig2, dens_bins, method='dMW', fill_value=np.nan, mask = ATLboolmask, sort_ogrd='True')
+    MW_dens = utils_conv.resample_colwise_on_zgrd(MW_z_t, ncdat.z_t.values, zdb, method='dMW', fill_value=np.nan, mask = ATLboolmask, sort_zngrd='False')
     utils_misc.savevar(MW_dens, path_dens+fname_MWdens)                         # save to file
 
 # ---------------------------------------------------------------------------------------

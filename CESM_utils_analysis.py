@@ -104,21 +104,21 @@ def xcorr(a,b,maxlag):
     corr_coeff[i+maxlag] = np.corrcoef(normalize(aa),normalize(bb))[0,1]
   return corr_coeff
 
-    
+
 # =======================================================================================
 # - integrate 3dim data along density axis and weight with thickness of boxes
 # =======================================================================================
 def integrate_along_dens(dat, delta):
   # expand delta, the layer-thickness, from 1d to 3d by copying the columns
-  delta = utils_conv.expand_karray_to_kji(delta, dat.shape[-2], dat.shape[-1])
+  if len(delta.shape)==1:
+    delta = utils_conv.expand_karray_to_kji(delta, dat.shape[-2], dat.shape[-1])
   # calculate the total thickness of each column for normalisation (only count boxes with non-nan dat value)
   delta_sum = np.nansum(delta*(np.isnan(dat)==False).astype(int), axis=0)
   delta_sum[delta_sum==0] = np.nan
   # weighted sum and normalisation with delta_sum
   dat_int = np.nansum(dat*delta, axis=0) / delta_sum
   return(dat_int)
-  
-  
+    
   
   
   
