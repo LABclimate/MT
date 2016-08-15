@@ -56,14 +56,15 @@ import UTILS_misc as utils_misc
         10 (Norvegian Sea and Northern Seas) and
 	11 (Hudson Bay)
 '''
+#(mask>=6) & (mask!=7)  # ATL without Mediteranian
 def mask_ATLANTIC(varin, mask, outputformat='xr'):
     if outputformat=='ma':
-        return(ma.masked_array(varin, mask=np.array(mask>=6)))
+        return(ma.masked_array(varin, mask=np.array(mask>=0)))
     elif outputformat=='xr':
-        return(varin.where(mask>=6))
+        return(varin.where(mask>=0))
 
 def get_ATLbools(mask):
-    return(np.array(mask>=6))
+    return(np.array(mask>=0))
 
 # =======================================================================================
 # generate auxillary grid and related masks and mask-like iterators 

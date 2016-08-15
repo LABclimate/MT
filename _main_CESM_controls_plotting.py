@@ -10,7 +10,7 @@ import matplotlib as ml
 import CESM_utils_plt as utils_plt
 
 plt.ion() # enable interactive mode
-path_fig = '../figures/post_discussion_160701/'
+path_fig = '../figures/160711/'
 
 
 # =======================================================================================
@@ -56,9 +56,9 @@ plt.xlim([-36,90])
  #utils_plt.print2pdf(fig, path_fig+'MOC_mgrd_V')
 # -----------------------------------------------------------------------------------------
 # dMOC on model grid (in Sv)
-fig, ax = utils_plt.plot_MOC(lat_mgrd, dens_bins_centers, dMOC_mgrd_W_norm, nlevels=10, plttype='pcolor+contour')
+fig, ax = utils_plt.plot_MOC(lat_mgrd, dbc, dMOC_mgrd_W_norm, nlevels=10, plttype='pcolor+contour')
 plt.title('dMOC mgrd W (sigma2)')
-plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
+plt.suptitle('density binning from {} to {} in {} steps'.format(dbc.min(), dbc.max(), len(dbc)))
 plt.xlim([-36,73])
 plt.yticks(ticks_vol)
 plt.gca().set_yticklabels(ticks_dens)
@@ -83,9 +83,9 @@ plt.title('MOC auxgrd V')
  #utils_plt.print2pdf(fig, 'testfigures/MOC_auxgrd_V')
 # -----------------------------------------------------------------------------------------
 # dMOC_auxgrd_W (in Sv)
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, dens_bins_centers, dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour')
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, dbc, dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour')
 plt.title('dMOC auxgrd W (sigma2)')
-plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
+plt.suptitle('density binning from {} to {} in {} steps'.format(dbc.min(), dbc.max(), len(dbc)))
 plt.xlim([-36,90])
 plt.yticks(ticks_vol)
 plt.gca().set_yticklabels(ticks_dens)
@@ -109,19 +109,20 @@ plt.title('MVxint auxgrd')
 # -----------------------------------------------------------------------------------------
 # COMBINATION of MWxint_auxgrd and MOC_auxgrd
 fig = plt.figure()
+plt.suptitle('density binning from {} to {} in {} steps'.format(dbc.min(), dbc.max(), len(dbc)))
+
 plt.subplot(3,1,1)
+plt.title('MOC on depth axis on auxgrd')
 ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
-plt.title('MOC on depth axis on auxgrd')
-plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
 plt.xlim([-36,90])
 
 plt.subplot(3,1,2)
+plt.title('MW on depth axis longitudinally integrated on auxgrd (in Sv)')
+plt.ylabel('depth')
 ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MWxint_auxgrd, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.xlim([-36,90])
-plt.title('MW on depth axis longitudinally integrated on auxgrd (in Sv)')
-plt.ylabel('depth')
 
 plt.subplot(3,1,3)
 plt.plot(lat_auxgrd, np.nansum(MWxint_auxgrd,axis=0), '.-k')
@@ -135,22 +136,23 @@ plt.xlabel('latitude')
 # -----------------------------------------------------------------------------------------
 # COMBINATION of dMWxint_auxgrd and dMOC_auxgrd
 fig = plt.figure()
+plt.suptitle('density binning from {} to {} in {} steps'.format(db.min(), db.max(), len(db)))
+
 plt.subplot(3,1,1)
-ax = utils_plt.plot_MOC(lat_auxgrd, vol_axis[:-1], dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
 plt.title('MOC on density axis on auxgrd')
-plt.suptitle('density binning from {} to {} in {} steps'.format(dens_bins_centers.min(), dens_bins_centers.max(), len(dens_bins_centers)))
+ax = utils_plt.plot_MOC(lat_auxgrd, db, dMOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
+#plt.yticks(ticks_vol_reg)
+#plt.gca().set_yticklabels(ticks_dens)
 plt.xlim([-36,90])
-plt.yticks(ticks_vol)
-plt.gca().set_yticklabels(ticks_dens)
 
 plt.subplot(3,1,2)
-ax = utils_plt.plot_MOC(lat_auxgrd, vol_axis[:-1], dMWxint_auxgrd, nlevels=40, plttype='pcolor', to_newfigure=False)
-plt.xlim([-36,90])
-plt.plot(lat_mgrd, np.nanmax(np.nanmax(sig2,0),1), 'm-', label='maximal density (on mgrd)')
 plt.title('MW on density axis longitudinally integrated on auxgrd (in Sv)')
 plt.ylabel('density')
-plt.yticks(ticks_vol)
-plt.gca().set_yticklabels(ticks_dens)
+ax = utils_plt.plot_MOC(lat_auxgrd, db, dMWxint_auxgrd, nlevels=40, plttype='pcolor', to_newfigure=False)
+plt.plot(lat_mgrd, np.nanmax(np.nanmax(sig2,0),1), 'm-', label='maximal density (on mgrd)')
+#plt.yticks(ticks_vol_reg)
+#plt.gca().set_yticklabels(ticks_dens)
+plt.xlim([-36,90])
 plt.legend(loc='lower left')
 
 plt.subplot(3,1,3)
@@ -159,7 +161,7 @@ plt.colorbar()
 plt.xlim([-36,90])
 plt.ylabel('sum over whole density-axis (in Sv)')
 plt.xlabel('latitude')
- #utils_plt.print2pdf(fig, 'testfigures/dMWxint_auxgrd')
+utils_plt.print2pdf(fig, path_fig+'dMOC_tripple'+varname_binning)
 
 
 
@@ -190,8 +192,8 @@ plt.title('MW against depth')
 
 plt.subplot(1,5,3)
 ax = plt.gca(); ax.invert_yaxis()
-plt.plot(MW_dens[:,lat,lon], dens_bins[:-1],'.-r')
-plt.plot(np.zeros_like(dens_bins), dens_bins, 'b.')
+plt.plot(MW_dens[:,lat,lon], db[:-1],'.-r')
+plt.plot(np.zeros_like(db), db, 'b.')
 plt.title('MW against density')
 #plt.text(.1,.05,'SUM = '+str(np.nansum(MW_dens[:,lat,lon])), horizontalalignment='left', transform=ax.transAxes)
 
@@ -203,8 +205,8 @@ plt.title('Temp against depth')
 
 plt.subplot(1,5,5)
 ax = plt.gca(); ax.invert_yaxis()
-plt.plot(T_dens[:,lat,lon], dens_bins,'.-r')
-plt.plot(np.zeros_like(dens_bins), dens_bins, 'b.')
+plt.plot(T_dens[:,lat,lon], db,'.-r')
+plt.plot(np.zeros_like(db), db, 'b.')
 plt.title('Temp against density')
 
 
@@ -217,14 +219,14 @@ plt.figure()
 plt.subplot(1,2,1)
 plt.suptitle('location: lat={:d} lon={:d}'.format(lat, lon))
 ax = plt.gca(); ax.invert_yaxis()
-plt.plot(T_dens[:,lat,lon], dens_bins,'.-r', label='density-T against density bins')
+plt.plot(T_dens[:,lat,lon], db,'.-r', label='density-T against density bins')
 plt.plot(T[:,lat,lon], sig2[:,lat,lon],'.-b', label='depth-T against sigma2')
 plt.title('Temperature')
 plt.legend(loc='best')
 
 plt.subplot(1,2,2)
 ax = plt.gca(); ax.invert_yaxis()
-plt.plot(MW_dens[:,lat,lon], dens_bins[:-1],'.-r', label='density-MW against density bins')
+plt.plot(MW_dens[:,lat,lon], db[:-1],'.-r', label='density-MW against density bins')
 plt.plot(MW_mgrd[:,lat,lon], sig2[:,lat,lon],'.-b', label='depth-MW against sigma2')
 plt.title('MW')
 plt.legend(loc='best')
@@ -272,7 +274,7 @@ print(np.nanmin(T_dens_int), np.nanmax(T_dens_int))
 plt.figure()
 
 MW_int = utils_ana.integrate_along_dens(MW_mgrd, ncdat.dzw)
-MW_dens_int = utils_ana.integrate_along_dens(MW_dens, ddb_centers)
+MW_dens_int = utils_ana.integrate_along_dens(MW_dens, ddbc)
 min_MW = np.nanmin([MW_int])
 max_MW = np.nanmax([MW_int])
 cmap_MW = utils_plt.shiftCMap(ml.cm.seismic, midpoint = 1-max_MW/(max_MW-min_MW), name='shifted')

@@ -55,8 +55,8 @@ ml.style.use('bmh')
 def plot_MOC(xvar, yvar, var, nlevels=100, plttype='contour', min = [], max = [], to_newfigure=True, to_subplot=[0,0,0]):
     ''' uses utils_plt.get_cmap()'''
     # colormap
-    if min == []:   min = np.floor(np.nanmin(var)) # minimum value of varin
-    if max == []:   max = np.ceil(np.nanmax(var))  # maximum value of varin
+    if min == []:   min = np.nanmin(var) # minimum value of varin
+    if max == []:   max = np.nanmax(var)  # maximum value of varin
      #cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis()) # viridis
     cmap = utils_plt.shiftCMap(ml.cm.seismic, midpoint=1-max/(max-min), name='shifted') # shifted blue white red
     # open new figure
