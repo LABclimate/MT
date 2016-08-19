@@ -52,9 +52,9 @@ def calc_MV(ncdat):
      #> Think about NOT to roll #!
     '''
     vvel = utils_mask.mask_ATLANTIC(ncdat.VVEL.mean(dim='time'), ncdat.REGION_MASK)
-    DXU = ncdat.DXU 		                     # x-spacing centered at U points
+    DXU = ncdat.DXU.values 		                    # x-spacing centered at U points
     DZU = ncdat.z_w_bot.values-ncdat.z_w_top.values  # z-spacing centered at U points
-    UYAREA = np.array([DXU.values*ii for ii in DZU]) # y-area of U cells
+    UYAREA = np.array([DXU*ii for ii in DZU])        # y-area of U cells
     MV = xr.DataArray(vvel*UYAREA*1e-12, 
 		name='meridional volume transport', 
 		attrs={'units':u'Sv'})

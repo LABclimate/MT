@@ -193,6 +193,7 @@ def calc_MOC_auxgrd(lat_ax, zd_ax, transport_type, Mxint, intdir, path_vars, sav
      > zd_ax                : vertical or density axis of auxgrd | nparray
      > transport_type       : either 'W' or 'V' | string
      > Mxint                : zonally integrated volume transport
+     > intdir               : direction of integration
      > path_vars            : path for saving variables | string
      > do_norm              : do normalisation relative to northern boundary | boolean
      > savevar              : boolean
