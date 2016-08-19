@@ -30,18 +30,44 @@ import CESM_utils_time as utils_time
 import CESM_paths as paths
 from IPython.core.debugger import Tracer; debug_here = Tracer()
 
+from UTILS_misc import loadgetsave as LGS
+
 # suppress RuntimeWaring due to All-NaN slices.
+import warnings
 with warnings.catch_warnings():
-    warnings.filterwarnings('ignore', r'All-NaN (slice|axis) encountered')
-    
-# #######################################################################################
-#  GET AND PROCESS DATA
-# #######################################################################################
-# ---------------------------------------------------------------------------------------
-# load netcdf file
+    warnings.filterwarnings('ignore', r'All-NaN axis encountered')
+with warnings.catch_warnings():
+    warnings.filterwarnings('ignore', r'All-NaN slice encountered')
+
+# =======================================================================================
+#  Load netcdf file
+# =======================================================================================
 fpath='../data/'
 fname='b40.lm850-1850.1deg.001.pop.h.1279.ann.4.cdf'
 ncdat = xr.open_dataset(fpath+fname, decode_times=False)
+
+# =======================================================================================
+#  Settings and Directories
+# =======================================================================================
+auxgrd_name = ['lat395model_zeq60', 'lat198model_zeq60', 'lat170eq80S90N_zeq60', 'lat340eq80S90N_zeq60'][1] # choose aux grid
+dbsetup = np.array([[20, 33, 14], [33.1, 36, 11], [36.05, 37.5, 11], [38, 43, 11]]) # setup for density bins [lower, upper, steps]
+densChoice = 'sig2'     # string | choice of density to use for resampling (either RHO or sig2) 
+# ---------------------------------------------------------------------------------------
+# automatical generation of directory names
+dir_mgrd         = paths.get_path2vars('mgrd', mkdir=True)
+str_db          = 'spec_%sto%sin%s_%sto%sin%s_%sto%sin%s_%sto%sin%s' % tuple(dbsetup.flatten())
+dir_dens        = paths.get_path2vars('dens', mkdir=True)
+dir_auxgrd      = paths.get_path2vars(auxgrd_name, mkdir=True)
+# paths (directory + filenames) to temp variables
+path_MW_z_t     = dir_mgrd+'MW_z_t'
+path_dMW        = dir_dens+'dMW_'+densChoice+'_'+str_db
+path_dMV_proj   = dir_dens+'dMV_proj_'+densChoice+'_'+str_db
+path_zdb        = dir_dens+'zdb_'+str_db
+path_zdbc       = dir_dens+'zdbc_'+str_db
+path_HT_auxgrd_xmax = dir_auxgrd+'HT_auxgrd_xmax'
+path_HT_mgrd_xmax   = dir_mgrd+'HT_mgrd_xmax'
+path_HU_auxgrd_xmax = dir_auxgrd+'HU_auxgrd_xmax'
+path_HU_mgrd_xmax   = dir_mgrd+'HU_mgrd_xmax'
 
 # =======================================================================================
 #  Transformation on different grids (Density, Spatial auxiliary grid)
@@ -51,7 +77,6 @@ ncdat = xr.open_dataset(fpath+fname, decode_times=False)
 ATLboolmask = utils_mask.get_ATLbools(ncdat.REGION_MASK.values) # boolean mask
 # ---------------------------------------------------------------------------------------
 # - Spatial auxiliary grid
-auxgrd_name = ['lat395model_zeq60', 'lat198model_zeq60', 'lat170eq80S90N_zeq60', 'lat340eq80S90N_zeq60'][1]       # choose aux grid
 lat_auxgrd, zT_auxgrd, z_w_top_auxgrd = utils_mask.gen_auxgrd(ncdat, auxgrd_name)
 lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very inappropriate
 # ---------------------------------------------------------------------------------------
@@ -61,27 +86,29 @@ PT = ncdat.TEMP[0,:,:,:].values             # potential temperature
 CT = gsw.CT_from_pt(SA, PT)                 # conservative temperature
 sig2 = gsw.sigma2(SA, CT)                   # potential density anomaly referenced to 2000dbar
 RHO = ncdat.RHO[0,:,:,:].values*1000-1000   # in-situ density anomaly [SI]
+if densChoice == 'sig2': dens = sig2
+elif densChoice == 'rho': dens = RHO
 # density bins, center-values and thicknesses
-db = np.concatenate((np.linspace(20, 33, 14), np.linspace(33.1, 36, 11), np.linspace(36.05,37.5, 11), np.linspace(38, 43, 11)))
+db = np.concatenate((np.linspace(dbsetup[0,0],dbsetup[0,1],dbsetup[0,2]), np.linspace(dbsetup[1,0],dbsetup[1,1],dbsetup[1,2]), np.linspace(dbsetup[2,0],dbsetup[2,1],dbsetup[2,2]), np.linspace(dbsetup[3,0],dbsetup[3,1],dbsetup[3,2])))
 dbc = np.array([np.mean(db[i-1:i+1]) for i in np.arange(1,len(db))]) #! center-values | reasonable for non-eq-spaced db?
 ddb = utils_ana.canonical_cumsum(np.diff(db)/2, 2, crop=True)        # layer thickness of density_bins
 ddbc = np.diff(db)                                                   # layer thickness from midpoint to midpoint (#! note: it is 1 element longer than ddb)
 # depth of isopycnals (i.e. of density_bins at both staggered grids)
-z_t_3d = utils_conv.expand_karray_to_kji(ncdat.z_t, sig2.shape[-2], sig2.shape[-1])
-zdb = utils_conv.resample_colwise(z_t_3d, sig2, db, 'lin', fill_value=np.nan, mask = ATLboolmask, mono_method='sort')
-zdbc = utils_conv.resample_colwise(z_t_3d, sig2, dbc, 'lin', fill_value=np.nan, mask = ATLboolmask, mono_method='sort')
+z_t_3d = utils_conv.exp_k_to_kji(ncdat.z_t, dens.shape[-2], dens.shape[-1])
+zdb = LGS(lambda: utils_conv.resample_colwise(z_t_3d, dens, db, 'lin', fill_value=np.nan, mask = ATLboolmask, mono_method='sort'), path_zdb)
+zdbc = LGS(lambda: utils_conv.resample_colwise(z_t_3d, dens, dbc, 'lin', fill_value=np.nan, mask = ATLboolmask, mono_method='sort'), path_zdbc)
 
-del PT, CT, z_t_3d
+del PT, CT, z_t_3d, dbsetup
 # ---------------------------------------------------------------------------------------
 # Volume representation for axis-scaling
 #! check if and where db to be replaced by dbc
-dz3d = utils_conv.expand_karray_to_kji(ncdat.dz, sig2.shape[-2], sig2.shape[-1])    # in cgs
-TAREA3d = utils_conv.expand_jiarray_to_kji(ncdat.TAREA, sig2.shape[0])              # in cgs
-vol3d = dz3d*TAREA3d                                                                # in cgs
-inds = np.digitize(sig2, db)
+dz3d = utils_conv.exp_k_to_kji(ncdat.dz, dens.shape[-2], dens.shape[-1])    # in cgs
+TAREA3d = utils_conv.exp_ji_to_kji(ncdat.TAREA, dens.shape[0])              # in cgs
+vol3d = dz3d*TAREA3d                                                        # in cgs
+inds = np.digitize(dens, db)
 vol_dbs_glob = np.zeros(shape=[len(db)])
 vol_dbs_reg  = np.zeros(shape=[len(db)])
-vol_dbs_col  = np.zeros(shape=[len(db), sig2.shape[-2], sig2.shape[-1]])
+vol_dbs_col  = np.zeros(shape=[len(db), dens.shape[-2], dens.shape[-1]])
 for b in np.arange(len(db)):
     vol_dbs_glob[b] = np.sum(vol3d[inds==b])                # global        # in cgs
     vol_dbs_reg[b]  = np.sum((vol3d*ATLboolmask)[inds==b])  # regional      # in cgs
@@ -97,98 +124,79 @@ ticks_vol_reg = ax_vol_reg[np.in1d(db, ticks_dens)]
 del dz3d, TAREA3d, vol3d, inds
 
 # =======================================================================================
-# Pathnames for temporally stored variables
-# =======================================================================================
-dens_str = 'sig2'   # string | choice of density to use for resampling (either RHO or sig2) 
-
-path_auxgrd = paths.get_path2vars(auxgrd_name, mkdir=True)
-path_grd = paths.get_path2vars('grd', mkdir=True)
-path_dens = paths.get_path2vars('dens', mkdir=True)
-varname_binning = 'spec_{}to{}in{}_{}to{}in{}_{}to{}in{}_{}to{}in{}'.format(28,33,14, 33.1,36,11, 36.05,37.5,11, 38,43,11)
-
-fname_MWdens = 'MW_'+dens_str+'_'+varname_binning
-fname_MWzt = 'MW_z_t'    # MW interpolated on z_t i.e. on T-cell centres
-
-# =======================================================================================
 #  Variables contained in model output
 # =======================================================================================
 # - temperature -------------------------------------------------------------------------
 T = ncdat.TEMP.mean(dim='time')
 T = utils_mask.mask_ATLANTIC(T, ncdat.REGION_MASK)
-T_dens = utils_conv.resample_colwise(T.values, sig2, db, method='lin', fill_value=np.nan, mask=ATLboolmask, mono_method='sort')
-
+#T_dens = utils_conv.resample_colwise(T.values, dens, db, method='lin', fill_value=np.nan, mask=ATLboolmask, mono_method='sort')
 
 # =======================================================================================
-#  Transports and Streamfunctions - V
+#  Volume transports (in Sv)
 # =======================================================================================
-# ---------------------------------------------------------------------------------------
-# - Volume transports (in Sv)
-MV_mgrd = utils_transp.calc_MV(ncdat)                                          # on model grid
-MV_projauxgrd = utils_conv.project_on_auxgrd(MV_mgrd, ncdat.ANGLE.values)      # projected on auxiliary grid i.e. towards N (same shape as on model grid)
+# - on model grid
+MV_mgrd         = utils_transp.calc_MV(ncdat)
+MW_mgrd         = utils_transp.calc_MW(ncdat)
+# - MV projected on auxiliary grid i.e. towards N (same shape as on model grid)
+MV_proj         = utils_conv.project_on_auxgrd(MV_mgrd.values, ncdat.ANGLE.values)
+# - MW resampled on centre of T grid
+MW_z_t          = LGS(lambda: utils_conv.resample_colwise(MW_mgrd.values, MW_mgrd.z_w_top.values, ncdat.z_t.values, method='lin', mask=ATLboolmask, mono_method='sort'), path_MW_z_t)
+# - resampled on density axis
+dMV_proj        = LGS(lambda: utils_conv.resample_colwise(MV_proj, ncdat.z_t.values, zdb, method='dMV_zdb', fill_value=np.nan, mask = ATLboolmask, mono_method='force'), path_dMV_proj)
+dMW             = LGS(lambda: utils_conv.resample_colwise(MW_z_t, ncdat.z_t.values, zdb, method='dMW_zdb', fill_value=np.nan, mask = ATLboolmask, mono_method='force'), path_dMW)
+ #dMW             = LGS(lambda: utils_conv.resample_colwise(MW_z_t, dens, db, method='dMW_db', fill_value=np.nan, mask = ATLboolmask, mono_method='force'), path_dMW)
 
+# =======================================================================================
+#  Streamfunctions - V method
+# =======================================================================================
 # ---------------------------------------------------------------------------------------
 # - BSF Streamfunction (in Sv)
 BSF_mgrd, MVzint = utils_BSF.calc_BSF_mgrd(MV_mgrd, dump_MVzint=True)
 
 # ---------------------------------------------------------------------------------------
-# - MOC Streamfunction (in Sv)...
-# ... in depth-space
-MOC_mgrd_V, MVxint_mgrd = utils_MOC.calc_MOC_mgrd('V', MV_projauxgrd, do_norm=True, dump_Mxint=True)
-MVxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MV_projauxgrd.values, ncdat, path_auxgrd)
-MOC_auxgrd_V, MOC_auxgrd_V_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MVxint_auxgrd, 'forward', path_auxgrd)
-# ... in density-space
-MV_cumsum = np.cumsum(MV_projauxgrd, axis=0)
-dMV = utils_conv.resample_colwise(MV_cumsum.values, ncdat.z_t.values, zdb, method='dMW_zdb', fill_value=np.nan, mask = ATLboolmask, mono_method='force')
+# - MOC Streamfunction (in depth space) (in Sv)
+#   (1) zonal integration
+MVxint_mgrd     = np.nansum(MV_proj, axis=2)
+MVxint_auxgrd   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MV_proj, ncdat, dir_auxgrd)
+#   (2) vertical integration
+MOC_mgrd_V      = utils_ana.nancumsum(MVxint_mgrd, axis=0)
+MOC_auxgrd_V    = utils_ana.nancumsum(MVxint_auxgrd, axis=0)
 
-dMOC_mgrd_V, dMOC_mgrd_V_norm, dMVxint_mgrd = utils_MOC.calc_MOC_mgrd_nparray('V', dMV, dump_Mxint=True)
-dMVxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, db, 'dV', dMV, ncdat, path_auxgrd)
-dMOC_auxgrd_V = dMVxint_auxgrd
-dMOC_auxgrd_V_norm = dMOC_auxgrd_V - np.tile(dMOC_auxgrd_V[:,-1],(dMOC_auxgrd_V.shape[1],1)).T
+# ---------------------------------------------------------------------------------------
+# - dMOC Streamfunction (in density space) (in Sv)
+#   (1) vertical integration of MV (first! as weighting known in depth-space)
+MV_zint         = utils_ana.nancumsum(MV_proj, axis=0)
+#   (2) conversion on density axis
+dMV_zint        = utils_conv.resample_colwise(MV_zint, ncdat.z_t.values, zdb, method='dMW_zdb', fill_value=np.nan, mask = ATLboolmask, mono_method='force')
+ #dMW_zint        = utils_conv.resample_colwise(MV_zint, dens, db, method='dMV_db', fill_value=np.nan, mask = ATLboolmask, mono_method='force')
+#   (3) zonal integration
+dMOC_mgrd_V     = np.nansum(dMV_zint, axis=2)
+dMOC_auxgrd_V   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, db, 'dV', dMV_zint, ncdat, dir_auxgrd)
 
-'''
 # =======================================================================================
-#  Transports and Streamfunctions - W
+#  Streamfunctions - W method
 # =======================================================================================
 # ---------------------------------------------------------------------------------------
-# - Volume transports (in Sv)...
-# ... on model grid
-MW_mgrd = utils_transp.calc_MW(ncdat)
-# ... resampled on centre of T grid
-MW_z_t = utils_conv.resample_colwise(MW_mgrd.values, MW_mgrd.z_w_top.values, ncdat.z_t.values, method='lin', mask = ATLboolmask, mono_method='sort')
-# ... resampled on density axis
-#     --> 2 versions
-dMW = utils_conv.resample_colwise(MW_z_t, ncdat.z_t.values, zdb, method='dMW_zdb', fill_value=np.nan, mask = ATLboolmask, mono_method='force')
- #dMW = utils_conv.resample_colwise(MW_z_t, sig2, db, method='dMW_db', fill_value=np.nan, mask = ATLboolmask, mono_method='force')
+# - MOC Streamfunction (in depth space) (in Sv)
+#   (1) zonal integration
+MWxint_mgrd     = np.nansum(MW_mgrd, axis=2)
+MWxint_auxgrd   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW_mgrd.values, ncdat, dir_auxgrd)
+#   (2) meridional integration
+MOC_auxgrd_W    = utils_MOC.normalise(utils_ana.nancumsum(MWxint_auxgrd, axis=1), ref='N')
 
 # ---------------------------------------------------------------------------------------
-# - BSF Streamfunction (in Sv)
-BSF_mgrd, MVzint = utils_BSF.calc_BSF_mgrd(MV_mgrd, dump_MVzint=True)
-
-# ---------------------------------------------------------------------------------------
-# - MOC Streamfunction (in Sv)...
-# ... in depth-space
-MOC_mgrd_W, MWxint_mgrd = utils_MOC.calc_MOC_mgrd('W', MW_mgrd, do_norm=True, dump_Mxint=True)
-MWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW_mgrd.values, ncdat, path_auxgrd)
-MOC_auxgrd_W, MOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint_auxgrd, 'forward', path_auxgrd)
-# ... in density-space
-dMOC_mgrd_W, dMOC_mgrd_W_norm, dMWxint_mgrd = utils_MOC.calc_MOC_mgrd_nparray('W', dMW, dump_Mxint=True)
-dMWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, db, 'dW', dMW, ncdat, path_auxgrd)
-dMOC_auxgrd_W, dMOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, db, 'W', dMWxint_auxgrd, 'forward', path_auxgrd)
-
-# ---------------------------------------------------------------------------------------
-# - Saving variables to files
-utils_misc.savevar(MW_z_t, path_dens+fname_MWzt)    # save to file
-utils_misc.savevar(dMW, path_dens+fname_MWdens)     # save to file
-'''
+# - dMOC Streamfunction (in density space) (in Sv)
+#   (1) zonal integration
+dMWxint_mgrd    = np.nansum(dMW, axis=2)
+dMWxint_auxgrd  = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, db, 'dW', dMW, ncdat, dir_auxgrd)
+#   (2) meridional integration
+dMOC_mgrd_W     = utils_MOC.normalise(utils_ana.nancumsum(dMWxint_mgrd, axis=1), ref='N')
+dMOC_auxgrd_W   = utils_MOC.normalise(utils_ana.nancumsum(dMWxint_auxgrd, axis=1), ref='N')
 
 # =======================================================================================
 #  Zonal maxima of ocean depth
 # =======================================================================================
-try:    HT_auxgrd_xmax = utils_misc.loadvar(path_auxgrd+'HT_auxgrd_xmax')       # load from file
-except: HT_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'T', path_auxgrd)
-try:    HT_mgrd_xmax = utils_misc.loadvar(path_grd+'HT_mgrd_xmax')             # load from file
-except: HT_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'T', path_grd)
-#try:    HU_auxgrd_xmax = utils_misc.loadvar(path_auxgrd+'HU_auxgrd_xmax')       # load from file
-#except: HU_auxgrd_xmax = utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'U', path_auxgrd)
-#try:    HU_mgrd_xmax = utils_misc.loadvar(path_grd+'HU_mgrd_xmax')             # load from file
-#except: HU_mgrd_xmax = utils_mask.calc_H_mgrd_xmax(ncdat, 'U', path_grd)
+HT_auxgrd_xmax = LGS(lambda: utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'T', path_HT_auxgrd_xmax), path_HT_auxgrd_xmax)
+HT_mgrd_xmax = LGS(lambda: utils_mask.calc_H_mgrd_xmax(lat_mgrd, ncdat, 'T', dir_mgrd), path_HT_mgrd_xmax)
+HU_auxgrd_xmax = LGS(lambda: utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'U', dir_auxgrd), path_HU_auxgrd_xmax)
+HU_mgrd_xmax = LGS(lambda: utils_mask.calc_H_mgrd_xmax(lat_mgrd, ncdat, 'U', path_mgrd), path_HU_mgrd_xmax)

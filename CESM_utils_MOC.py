@@ -21,6 +21,7 @@
 #################################
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 import pickle
 import CESM_utils_mask as utils_mask
@@ -28,55 +29,11 @@ import UTILS_misc as utils_misc
 from IPython.core.debugger import Tracer; debug_here = Tracer()
 
 # =======================================================================================
-# - MOC on model grid
+# - MOC on model grid with np-array as input
 # =======================================================================================
-def calc_MOC_mgrd(transport_type, M, do_norm=True, dump_Mxint=False):
-    '''
-    Input:
-     > transport_type       : either 'W' or  'V' | string
-     > M                    : volume transport (MW or MV) | xarray of shape [nz, nlat, nlon]
-     > do_norm              : boolean
-     > dump_Mxint           : boolean
-    Output:
-     > Mxint                : zonally integrated volume transport of shape [nz, nlat] | xarray
-     > MOC                  : MOC of shape [nz, nlat] | xarray
-    Comments:
-     > As latitude varies along longitude of model grid I simply set the TLAT as 
-       the *mean* of M-latitudes along longitudes.
-       Note, that this is very inappropriate at high latitudes!
-     > Think about taking np.nansum() #!
-    '''
-    # zonal integration along model grid    
-    Mxint = xr.DataArray(M.sum(dim='nlon'),  	# zonal integration
-		    attrs={'units':u'Sv'}, 
-		    coords={'TLAT':M.TLAT.mean(dim='nlon')}) 	#! mean is inappropriate at high latitudes!
-    # meridional integration along model grid
-    MOC = xr.DataArray(Mxint)
-    for j in np.arange(1,len(Mxint.nlat)): 	# meridional integration
-      MOC[dict(nlat=j)] = MOC.isel(nlat=j) + MOC.isel(nlat=j-1)
-    # normalisation relative to North (shift values such that zero at northern boundary)
-    if do_norm == True:
-      MOC = MOC - MOC[:,-1]
-    # naming xarrays
-    if transport_type == 'W':
-      Mxint.name = 'MW zonally integrated'
-      MOC.name = 'MOC on model grid calculated from WVEL'
-    elif transport_type == 'V':
-      Mxint.name = 'MV zonally integrated'
-      MOC.name = 'MOC on model grid calculated from VVEL'
-
-    if dump_Mxint == True:
-      return(MOC, Mxint)
-    else:
-      return(MOC)
-
-# =======================================================================================
-# - MOC on model grid with np-array as input (harder coded version of calc_MOC_mgrd())
-#  normalisation as additional output
-# =======================================================================================
-def calc_MOC_mgrd_nparray(transport_type, M, dump_Mxint=False):
+def calc_MOC_mgrd(transport_type, M, dump_Mxint=False):
     ''' same as in calc_MOc_mgrd()'''
-    # zonal integration along model grid    
+    # zonal integration along model grid   
     Mxint = np.nansum(M, 2) # zonal integration
     # meridional integration along model grid
     MOC = Mxint
@@ -145,7 +102,6 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
     try:    iter_maskcombo = utils_misc.loadvar(path_vars+'iter_maskcombo')
     except: iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_ax, ncdat, mask_auxgrd, path_vars)
 
-    print(len(zd_ax))
     # zonal integration along aux grid
       # ... on depth-axis
     if (transport_type == 'W') or (transport_type == 'V'):
@@ -157,6 +113,7 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
             for i in iter_maskcombo[n,j]:                       # limit zonal integration to Atlantic and grid-overlay
               Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
         utils_misc.ProgBar('done')
+
       # ... on density-axis
     elif (transport_type == 'dW') or (transport_type == 'dV'):
         print('> zonal integration')
@@ -167,88 +124,23 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
             for i in iter_maskcombo[n,j]:                # limit zonal integration to Atlantic and grid-overlay
               Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
         utils_misc.ProgBar('done')
-        
-    # write Mxint to xarray
-    Mxint= xr.DataArray(Mxint,
-		attrs={'units':u'Sv'},
-                coords={'z_w_top':np.arange(len(zd_ax)), 'nlat':np.arange(len(lat_ax))},
-		dims=['z_w_top', 'nlat'])
-
-    if transport_type == 'W':
-      Mxint.name = 'MW zonally integrated'                                      # naming xarray
-      if savevar == True: utils_misc.savevar(Mxint, path_vars+'MWxint_auxgrd')  # save to file
-    elif transport_type == 'V':
-      Mxint.name = 'MV zonally integrated'                                      # naming xarray
-      if savevar == True: utils_misc.savevar(Mxint, path_vars+'MVxint_auxgrd')  # save to file
-
+    
+    # save to file and return
+    if savevar == True:
+        utils_misc.savevar(Mxint, path_vars+'M'+transport_type+'xint_auxgrd')  
     return(Mxint)
 
 # ---------------------------------------------------------------------------------------
-# - MOC on auxillary grid
+# - normalise MOC
 # ---------------------------------------------------------------------------------------
-def calc_MOC_auxgrd(lat_ax, zd_ax, transport_type, Mxint, intdir, path_vars, savevar=True):
+def normalise(MOC, ref):
     '''
     Input:
-     > lat_ax               : meridional axis of auxgrd | nparray
-     > zd_ax                : vertical or density axis of auxgrd | nparray
-     > transport_type       : either 'W' or 'V' | string
-     > Mxint                : zonally integrated volume transport
-     > intdir               : direction of integration
-     > path_vars            : path for saving variables | string
-     > do_norm              : do normalisation relative to northern boundary | boolean
-     > savevar              : boolean
-    Output:
-     > MOC                  : MOC of shape [nz, nlat] | xarray
-    Steps:
-     > calculate MOC by meridional of Mxint integration along aux grid
-     > normalisation relative to northern boundary: at every point substract northernmost value at same depth, 
-       such that streamfunction closes at NP.
+     > MOC              : MOC | nparray
+     > ref              : reference | string ('N', 'S')
     '''
-    # iterators integration | direction: meridional (S-->N) and vertical/density (increasing)
-    iter_lat_ax = np.arange(len(lat_ax))
-    iter_zd_ax = np.arange(len(zd_ax))
-    # invert direction direction of integration
-    if intdir in ['inverse', 'inv', 'reverse', 'rev', -1]:
-        iter_lat_ax = iter_lat_ax[::-1]
-        iter_zd_ax = iter_zd_ax[::-1]
-        
-    # preallocation of MOC as np-array
-    MOC = np.copy(Mxint) # start with Mxint, which subsequently will be summed up
-
-    if transport_type == 'W':
-      # meridional integration along aux grid
-      print('> meridional integration')
-      for n in iter_lat_ax[1:]:
-        utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax), forceinit=True)
-        MOC[:,n] = np.nansum([MOC[:,n], MOC[:,n-1]], axis=0) 	        # meridional integration
-      utils_misc.ProgBar('done')
-
-      xrname = 'MOC on auxillary grid calculated from WVEL'             # name of xarray
-      fname = 'MOC_auxgrd_W'                                            # name for saving
-
-    elif transport_type == 'V':
-      # vertical integration along aux grid
-      print('> vertical integration')
-      for k in iter_zd_ax[1:]:
-        utils_misc.ProgBar('step', step=k, nsteps=len(iter_zd_ax), forceinit=True)
-        MOC[k,:] = np.nansum([MOC[k,:], MOC[k-1,:]], axis=0) 		# meridional integration
-      utils_misc.ProgBar('done')
-
-      xrname = 'MOC on auxillary grid calculated from VVEL'             # name of xarray
-      fname = 'MOC_auxgrd_V'                                            # name for saving
-
-    # write to xarray
-    MOC = xr.DataArray(MOC,
-		attrs={'units':u'Sv'},
-                coords=[np.arange(len(zd_ax)), np.arange(len(lat_ax))],
-		dims=['z_w_top', 'nlat'],
-                name=xrname)
-
     # normalisation relative to North (shift values such that zero at northern boundary)
-    MOC_norm = MOC - np.tile(MOC[:,-1],(MOC.shape[1],1)).T
-
-    # save to file
-    if savevar == True:
-      utils_misc.savevar(MOC, path_vars + fname)
-
-    return(MOC, MOC_norm)
+    if ref=='N': 
+        return(MOC - np.tile(MOC[:,-1],(MOC.shape[1],1)).T)
+    else:
+        return()

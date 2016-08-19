@@ -71,14 +71,14 @@ dbc = np.array([np.mean(db[i-1:i+1]) for i in np.arange(1,len(db))]) #! reasonab
 ddb = utils_ana.canonical_cumsum(np.diff(db)/2, 2, crop=True)        # layer thickness of density_bins
 ddbc = np.diff(db)                                                   # layer thickness from midpoint to midpoint (#! note: it is 1 element longer than ddb)
 # depth of isopycnals (i.e. of density_bins at both staggered grids)
-z_t_3d = utils_conv.expand_karray_to_kji(ncdat.z_t, sig2.shape[-2], sig2.shape[-1])
+z_t_3d = utils_conv.exp_k_to_kji(ncdat.z_t, sig2.shape[-2], sig2.shape[-1])
 zdb = utils_conv.resample_colwise(z_t_3d, sig2, db, 'lin', fill_value=np.nan, mask = ATLboolmask, mono_method='sort')
 zdbc = utils_conv.resample_colwise(z_t_3d, sig2, dbc, 'lin', fill_value=np.nan, mask = ATLboolmask, mono_method='sort')
 
 # total volume representated by db
 #! check if and where db to be replaced by dbc
-dz3d = utils_conv.expand_karray_to_kji(ncdat.dz, sig2.shape[-2], sig2.shape[-1])    # in cgs
-TAREA3d = utils_conv.expand_jiarray_to_kji(ncdat.TAREA, sig2.shape[0])              # in cgs
+dz3d = utils_conv.exp_k_to_kji(ncdat.dz, sig2.shape[-2], sig2.shape[-1])    # in cgs
+TAREA3d = utils_conv.exp_ji_to_kji(ncdat.TAREA, sig2.shape[0])              # in cgs
 vol3d = dz3d*TAREA3d                                                                # in cgs
 vol_dbs_glob = np.zeros(shape=[len(db)])
 vol_dbs_reg = np.zeros(shape=[len(db)])

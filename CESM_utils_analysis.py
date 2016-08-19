@@ -19,12 +19,32 @@
 #################################
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 import CESM_utils_mask as utils_mask
 import CESM_utils_conv as utils_conv
 import UTILS_misc as utils_misc
 
 
+# =======================================================================================
+# - cumsum
+# =======================================================================================
+def nancumsum(array, axis):
+    ''' Method: cumulative sum along axis ignoring NaNs.
+                only pandas ignores NaNs in cumsum function.
+        Input:
+         > array : 1dimensional np-array or list
+         > axis  : cumsum along this axis
+    '''
+    ndim = len(array.shape)
+    if ndim == 1:
+        return(np.array(pd.Series(array).cumsum(axis=axis)))
+    elif ndim == 2:
+        return(np.array(pd.DataFrame(array).cumsum(axis=axis)))
+    elif ndim == 3:
+        return(np.array(pd.Panel(array).cumsum(axis=axis)))
+        
+    
 # =======================================================================================
 # - canonical cumsum with span=n
 # =======================================================================================
@@ -111,7 +131,7 @@ def xcorr(a,b,maxlag):
 def integrate_along_dens(dat, delta):
   # expand delta, the layer-thickness, from 1d to 3d by copying the columns
   if len(delta.shape)==1:
-    delta = utils_conv.expand_karray_to_kji(delta, dat.shape[-2], dat.shape[-1])
+    delta = utils_conv.exp_k_to_kji(delta, dat.shape[-2], dat.shape[-1])
   # calculate the total thickness of each column for normalisation (only count boxes with non-nan dat value)
   delta_sum = np.nansum(delta*(np.isnan(dat)==False).astype(int), axis=0)
   delta_sum[delta_sum==0] = np.nan

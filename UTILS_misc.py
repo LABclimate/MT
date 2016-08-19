@@ -13,6 +13,8 @@
 # - savevar()
 # - checkdir()
 # - primefactors()
+# - loadgetsave()
+# - getnsave()
 #################################
 # please log your changes below
 #################################
@@ -25,6 +27,7 @@
 # 31-Mai-2016 - buerki@climate.unibe.ch: inProgBar added auto-calculation of barlength
 #                                        added checkdir()
 # 23-Jun-2016 - buerki@climate.unibe.ch: changed the name of checkdir() to mkdir()
+# 19-Aug-2016 - buerki@climate.unibe.ch: created loadgetsave() and getnsave()
 #################################
 
 import numpy as np
@@ -88,7 +91,32 @@ def savevar(var, filename):
       pickle.dump(var, f)
     print(' --> Success!')      
 
+# --- try to load, else create and save
+def loadgetsave(fun_to_get_var, path_to_var):
+    ''' 
+    Usage:
+     > import utils_misc.loadgetsave as LGS
+     > LGS(lambda: fun_to_get_var(args), path_to_var)
+    '''
+    try:
+        var = utils_misc.loadvar(path_to_var)
+    except:
+        var = fun_to_get_var()
+        utils_misc.savevar(var, path_to_var)
+    return(var)
+
+# --- create variable and save
+def getnsave(fun_to_get_var, path_to_var):
+    ''' 
+    Usage: 
+     > getnsave(lambda: fun_to_get_var(args), path_to_var)
+    '''
+    var = fun_to_get_var()
+    utils_misc.savevar(var, path_to_var)
+    return(var)
+    
 # --- add directory if unexistant
+
 def mkdir(dirname):
     if os.path.isdir(dirname)==False:
       os.mkdir(dirname)

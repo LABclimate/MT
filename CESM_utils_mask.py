@@ -188,7 +188,7 @@ def calc_H_mgrd_xmax(ncdat, TorUgrid, path_vars, savevar=True):
     return(H_mgrd_xmax)
 
 # ...for auxillary grid
-def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, path_vars, savevar=True):
+def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, path_vars):
     # a few variables to speed up subsequent loops
     iter_lat_auxgrd = np.arange(len(lat_auxgrd))
     iter_lat_mgrd = np.arange(len(ncdat.nlat))

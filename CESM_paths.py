@@ -62,8 +62,8 @@ def get_path2vars(vartype, mkdir=False):
     vars_root = '../variables/'
 
     # variables fixed to grid like maxdepths etc.
-    if vartype == 'grd':
-        dirname = vars_root+'vars_grd/'
+    if vartype == 'mgrd':
+        dirname = vars_root+'vars_mgrd/'
     # variables resampled on densityaxis
     elif vartype == 'dens':
         dirname = vars_root+'vars_dens/'
@@ -73,16 +73,16 @@ def get_path2vars(vartype, mkdir=False):
         
     # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
     elif vartype == 'lat170eq80S90N_zeq60': 
-        dirname = vars_root+'vars_grd/vars_aux_lat170eq80S90N_zeq60/'
+        dirname = vars_root+'vars_auxgrd/lat170eq80S90N_zeq60/'
     # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
     elif vartype == 'lat340eq80S90N_zeq60': 
-        dirname = vars_root+'vars_grd/vars_aux_lat340eq80S90N_zeq60/'
+        dirname = vars_root+'vars_auxgrd/lat340eq80S90N_zeq60/'
     # lat: as in ncdat.lat_aux_grid | z: 60 boxes
     elif vartype == 'lat395model_zeq60':
-        dirname = vars_root+'vars_grd/vars_aux_lat395model_zeq60/'
+        dirname = vars_root+'vars_auxgrd/lat395model_zeq60/'
     # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
     elif vartype == 'lat198model_zeq60':
-        dirname = vars_root+'vars_grd/vars_aux_lat198model_zeq60/'
+        dirname = vars_root+'vars_auxgrd/lat198model_zeq60/'
     # Raise error for invalid key
     else:
         sys.exit('Invalid key for path2vars')

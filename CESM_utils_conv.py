@@ -18,8 +18,8 @@
 #                                         added add_cyclic()
 # ??          - buerki@climate.unibe.ch : added project_on_auxgrd()
 # 15-Jun-2016 - buerki@climate.unibe.ch : added resample_1dim_lininterp() (migration from utils_dMOC)
-# 06-Jul-2016 - buerki@climate.unibe.ch : added expand_karray_to_kji()
-# 07-Jul-2016 - buerki@climate.unibe.ch : added expand_jiarray_to_kji()
+# 06-Jul-2016 - buerki@climate.unibe.ch : added exp_k_to_kji()
+# 07-Jul-2016 - buerki@climate.unibe.ch : added exp_ji_to_kji()
 #################################
 
 import numpy as np
@@ -33,13 +33,13 @@ from IPython.core.debugger import Tracer; debug_here = Tracer()
 # =======================================================================================
 # - expand (copy) 1d array (in k) to 3 dimensions keeping the input array on first dimension
 # =======================================================================================
-def expand_karray_to_kji(k_array, len_j, len_i):
+def exp_k_to_kji(k_array, len_j, len_i):
     return(np.swapaxes(np.broadcast_to(k_array, (len_i, len_j, len(k_array))), 0,-1))
 
 # =======================================================================================
 # - expand (copy) 2d array (in j and i) to 3 dimensions
 # =======================================================================================
-def expand_jiarray_to_kji(ji_array, len_k):
+def exp_ji_to_kji(ji_array, len_k):
     return(np.broadcast_to(ji_array, (len_k, ji_array.shape[0], ji_array.shape[1])))
 
 # =======================================================================================
@@ -113,7 +113,7 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', m
     #   note: singleton-dimensions are intended depending on original shape of odat
     def expand_shape(varin):
         if len(varin.shape) == 1:   # 1dim --> 3dim
-            return(utils_conv.expand_karray_to_kji(varin, len_j, len_i))
+            return(utils_conv.exp_k_to_kji(varin, len_j, len_i))
         elif len(varin.shape) == 2: # 2dim --> 3dim
             sys.exit('case of two-dimensional ogrd is not implemented yet!')
         elif len(varin.shape) == 3: # already 3dim
