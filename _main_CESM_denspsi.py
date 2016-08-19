@@ -163,7 +163,7 @@ MOC_mgrd_V      = utils_ana.nancumsum(MVxint_mgrd, axis=0)
 MOC_auxgrd_V    = utils_ana.nancumsum(MVxint_auxgrd, axis=0)
 
 # ---------------------------------------------------------------------------------------
-# - dMOC Streamfunction (in density space) (in Sv)
+# - A dMOC Streamfunction (in density space) (in Sv)
 #   (1) vertical integration of MV (first! as weighting known in depth-space)
 MV_zint         = utils_ana.nancumsum(MV_proj, axis=0)
 #   (2) conversion on density axis
@@ -172,7 +172,17 @@ dMV_zint        = utils_conv.resample_colwise(MV_zint, ncdat.z_t.values, zdb, me
 #   (3) zonal integration
 dMOC_mgrd_V     = np.nansum(dMV_zint, axis=2)
 dMOC_auxgrd_V   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, db, 'dV', dMV_zint, ncdat, dir_auxgrd)
-
+# ---------------------------------------------------------------------------------------
+# - B dMOC Streamfunction (in density space) (in Sv)
+#   (1) conversion on density axis
+dMV             = utils_conv.resample_colwise(MV_proj, ncdat.z_t.values, zdb, method='dMW_zdb', fill_value=np.nan, mask = ATLboolmask, mono_method='force')
+ #dMW             = utils_conv.resample_colwise(MV, dens, db, method='dMV_db', fill_value=np.nan, mask = ATLboolmask, mono_method='force')
+#   (2) zonal integration
+dMVxint_mgrd    = np.nansum(dMV, axis=2)
+dMVxint_auxgrd  = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, db, 'dV', dMV, ncdat, dir_auxgrd)
+#   (3) integration of MV along density
+dMOC_mgrd_V     = utils_ana.nancumsum((dMVxint_mgrd.T*np.append(ddbc,1)).T, axis=0)/np.sum(ddbc) #! pfusch!!
+dMOC_auxgrd_V   = 
 # =======================================================================================
 #  Streamfunctions - W method
 # =======================================================================================

@@ -55,14 +55,23 @@ plt.title('MOC mgrd V')
 plt.xlim([-36,90])
  #utils_plt.print2pdf(fig, path_fig+'MOC_mgrd_V')
 # -----------------------------------------------------------------------------------------
-# dMOC on model grid (in Sv)
+# dMOC_mgrid_W(in Sv)
 fig, ax = utils_plt.plot_MOC(lat_mgrd, db, dMOC_mgrd_W, nlevels=10, plttype='pcolor+contour')
 plt.title('dMOC mgrd W (sigma2)')
 plt.suptitle('density binning from {} to {} in {} steps'.format(dbc.min(), dbc.max(), len(dbc)))
 plt.xlim([-36,73])
 plt.yticks(ticks_vol)
 plt.gca().set_yticklabels(ticks_dens)
-utils_plt.print2pdf(fig, path_fig+'dMOC_mgrd_W_sig2')
+#utils_plt.print2pdf(fig, path_fig+'dMOC_mgrd_W_sig2')
+# -----------------------------------------------------------------------------------------
+# dMOC_mgrid_V (in Sv)
+fig, ax = utils_plt.plot_MOC(lat_mgrd, db, dMOC_mgrd_V, nlevels=10, plttype='pcolor+contour')
+plt.title('dMOC mgrd W (sigma2)')
+plt.suptitle('density binning from {} to {} in {} steps'.format(dbc.min(), dbc.max(), len(dbc)))
+plt.xlim([-36,73])
+plt.yticks(ticks_vol)
+plt.gca().set_yticklabels(ticks_dens)
+#utils_plt.print2pdf(fig, path_fig+'dMOC_mgrd_V_sig2')
 
 # =======================================================================================
 #  Calculated on auxiliary (geographical) grid
