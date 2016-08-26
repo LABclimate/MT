@@ -18,6 +18,12 @@
 
 
 # =======================================================================================
+# - one liners
+# =======================================================================================
+# differences btw. density bins
+ddb = utils_ana.canonical_cumsum(np.diff(db)/2, 2, axis=0, crop=True)   # layer thickness of density_bins
+
+# =======================================================================================
 # - maxiter_depth filtering
 # =======================================================================================
 ''' It was found out only after abandoning this rather slow looping method

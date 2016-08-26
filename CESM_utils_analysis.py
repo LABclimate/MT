@@ -48,24 +48,31 @@ def nancumsum(array, axis):
 # =======================================================================================
 # - canonical cumsum with span=n
 # =======================================================================================
-def canonical_cumsum(array, n, crop=False):
+def canonical_cumsum(array, n, axis=0, crop=False):
     ''' Input:
          > array : 1dimensional np-array or list
          > n     : windowsize (n>0)
+         > axis  : axis along which the cumsum will be taken
          > crop  : bool | will crop the beginning of the output array, 
                           where the sum runs over uncomplete window.
+                   note: if ndim of array is >1 then the output will always be cropped.
+                         --> did not find a function like np.take to /access/ an array.
     '''
     if n<=0: 
       sys.exis('The windowsize n must be chosen greater than 0!')
-      
-    b = np.cumsum(array)
-    b[n:] = b[n:] - b[:-n]
-    if crop==True:
-      b = b[n-1:]
-      
-    return(b)
     
-    
+    if len(array.shape)==1:
+        b = np.cumsum(array)
+        b[n:] = b[n:] - b[:-n]
+        if crop==True:
+            b = b[n-1:]  
+        return(b)
+    else:
+        lenax = array.shape[axis]
+        b = np.cumsum(array, axis=axis)
+        c = np.take(b,np.arange(n-1,lenax),axis=axis) - np.take(b,np.arange(lenax-n),axis=axis)
+        return(c)
+
 # =======================================================================================
 # - running mean
 # =======================================================================================

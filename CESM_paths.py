@@ -57,9 +57,9 @@ def get_path2data(runname, key):
     
 # ---------------------------------------------------------------------------------------
 # Directories for Variables to be stored
-def get_path2vars(vartype, mkdir=False):
+def get_path2vars(vartype, CESMversion, mkdir=False):
     
-    vars_root = '../variables/'
+    vars_root = '../variables/'+'CESM_V'+str(CESMversion)+'/'
 
     # variables fixed to grid like maxdepths etc.
     if vartype == 'mgrd':
@@ -72,17 +72,17 @@ def get_path2vars(vartype, mkdir=False):
         dirname = vars_root+'vars_corr/'
         
     # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
-    elif vartype == 'lat170eq80S90N_zeq60': 
-        dirname = vars_root+'vars_auxgrd/lat170eq80S90N_zeq60/'
+    elif vartype == 'lat170eq80S90N': 
+        dirname = vars_root+'vars_auxgrd/lat170eq80S90N/'
     # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
-    elif vartype == 'lat340eq80S90N_zeq60': 
-        dirname = vars_root+'vars_auxgrd/lat340eq80S90N_zeq60/'
+    elif vartype == 'lat340eq80S90N': 
+        dirname = vars_root+'vars_auxgrd/lat340eq80S90N/'
     # lat: as in ncdat.lat_aux_grid | z: 60 boxes
-    elif vartype == 'lat395model_zeq60':
-        dirname = vars_root+'vars_auxgrd/lat395model_zeq60/'
+    elif vartype == 'lat395model':
+        dirname = vars_root+'vars_auxgrd/lat395model/'
     # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
-    elif vartype == 'lat198model_zeq60':
-        dirname = vars_root+'vars_auxgrd/lat198model_zeq60/'
+    elif vartype == 'lat198model':
+        dirname = vars_root+'vars_auxgrd/lat198model/'
     # Raise error for invalid key
     else:
         sys.exit('Invalid key for path2vars')

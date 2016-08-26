@@ -73,7 +73,7 @@ def project_on_auxgrd(varin, angle):
 # =======================================================================================
 # - columnwise resampling data on new grid 
 # =======================================================================================
-def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', mono_method='True'):
+def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', mono_method='filter'):
     '''
     Uses:
      > utils_conv.resample_1dim_lininterp()
@@ -90,7 +90,7 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', m
      > mono_method: string | 'filter' (will sort ogrd (and odat) such that ogrd is monotonically increasing (not necess. in strict sense!))
                              'force'  (will manipulate ogrd such that strictly monotonically increasing (brute method, not recommended))
     Output:
-     > ndat:    resampled data on new grid
+     > ndat:        resampled data on new grid
     Comments:
      > add warning if negative gradients occur.
      > #!! for discreapencies at the low- and high-density borders see the comment in resample_1dim_weightedmean().
@@ -118,19 +118,16 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', m
             sys.exit('case of two-dimensional ogrd is not implemented yet!')
         elif len(varin.shape) == 3: # already 3dim
             return(varin) # no expansion needed.
-
+    
     ngrd = expand_shape(ngrd)
     ogrd = expand_shape(ogrd)
     odat = expand_shape(odat)
     
     # get default for regional mask (i.e. do not mask anything)
     if mask == 'none':  mask = np.ones(shape=[len_j, len_i], dtype=bool)
-
+    
     # pre-allocation of ndat
     ndat = fill_value * np.ones_like(ngrd)
-    
-    # pre-allocation of influx_highdens
-    if method == 'dMW':  influx_highdens = np.zeros(shape=[len_j, len_i])
     
     # loop over columns
     for j in np.arange(len_j):
@@ -139,8 +136,8 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', m
             
             # skip masked [j,i]-tuples
             if mask[j,i]==False: continue
-                
-            # reduce ngrd, ogrd and odat to current column
+            
+            # reduce ngrd, ogrd and odat to current column  
             ngrd_ji = ngrd[:,j,i]
             ogrd_ji = ogrd[:,j,i]
             odat_ji = odat[:,j,i]
@@ -155,14 +152,14 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', m
                 if mono_method == 'sort':       # sort grd and dat relative to grd
                     idx_sort = np.argsort(grd)
                     grd, dat = grd[idx_sort], dat[idx_sort]
-                elif mono_method == 'force':    # manipulate grd
+                elif mono_method == 'force':    # manipulate grd (i.e. increase dropping values until mon. incr.)
                     for k in np.arange(1,ogrd.shape[0]):
                         if ogrd_ji[k] <= ogrd_ji[k-1]:
                             ogrd_ji[k] = ogrd_ji[k-1]+1e-10
                 return(grd, dat)
             
             # resampling
-            if method == 'lin':     # simple linear interpolation
+            if method == 'lin':         # simple linear interpolation
                 # make monotoneously increasing
                 if any(np.diff(ogrd_ji)<=0):
                     ogrd_ji, odat_ji = make_mono(ogrd_ji, odat_ji, mono_method)
@@ -175,27 +172,26 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', m
                 try:    idxn_start = np.where(ngrd_ji > np.nanmin(ogrd_ji))[0][0]
                 except: idxn_start = 0  #!
                 ndat[:,j,i], gaps_border, gaps_center = utils_conv.resample_1dim_lininterp(odat_ji, ogrd_ji, ngrd_ji, idxn_start, fill_value=0)
-                
+            
             elif method == 'dMW_zdb':   # for dMW calculation with isopycnal depth as reference for weighting
                 try:    idxn_start = np.where(ngrd_ji > np.nanmin(ogrd_ji))[0][0]
                 except: idxn_start = 0  #!
                 ndat[:,j,i], gaps_border, gaps_center = utils_conv.resample_1dim_lininterp(odat_ji, ogrd_ji, ngrd_ji, idxn_start, fill_value=0)
                 ndat[gaps_border,j,i] = fill_value
                 
-            elif method == 'sum': #! doesn't work right now!
+            elif method == 'dMV':       # for dMV calculation
+                try:    idxn_start = np.where(ngrd_ji > np.nanmin(ogrd_ji))[0][0]
+                except: idxn_start = 0  #!
+                ndat[:,j,i], gaps_border, gaps_center = utils_conv.resample_1dim_lininterp(odat_ji, ogrd_ji, ngrd_ji, idxn_start, fill_value=0)
+            
+            elif method == 'sum':       #! doesn't work right now!
                 try:    idxn_start = np.where(ngrd_ji > np.nanmin(ogrd_ji))[0][0]
                 except: idxn_start = 0  #!
                 ndat[:,j,i], gaps_border, gaps_center = resample_1dim_sum(odat_ji, ogrd_ji, ngrd, idxn_start, fill_value)            
                 ndat[:,j,i] = fill_gaps(ndat[:,j,i], gaps_border, gaps_center, fill_value)
-            
+            else:
+                raise ValueError('unexpected method passed to resample_colwise.')
     utils_misc.ProgBar('done')
-
-    # some statistics
-    if method == 'dMW':
-        print('Statistics on influx_highdens:' \
-              '\n mean:   {}\n median: {}\n min:    {}\n max:    {}'.format(\
-              np.nanmean(influx_highdens), np.nanmedian(influx_highdens), \
-              np.nanmin(influx_highdens), np.nanmax(influx_highdens)))
 
     return(np.squeeze(ndat)) # remove singleton dimensions (i.e. (1d --> 3d) --> back to 1d)
 
@@ -217,15 +213,16 @@ def resample_1dim_lininterp(odat, ogrd, ngrd, idxn_start, fill_value=np.nan):
      > gaps_center      bool-array, same shape as ndat | True where resolution of ngrd is higher than resolution of ogrd
     Comments:
      > #!! implemented, such that both, the low- and the high-value level of ngrd are left blank (i.e. on fill_value)
-       --> for dMW a shift of the cumsumvalues will correct for the high-density border discrepency 
+       --> for dMW a shift of the cumsumvalues will correct for the high-density border discrepancy 
        and a comparison with the columnwise integrated transport in depth-space for those at the low-density border.
     '''
-
+    
     # Pre-allocation of ndat | if ngrd is longer than ogrd fill tail with nans
     ndat = fill_value * np.ones(shape=ngrd.shape)
+    # Pre-allocation of gap-bools as False
     gaps_border = np.zeros(shape=ngrd.shape, dtype=bool)
     gaps_center = np.zeros(shape=ngrd.shape, dtype=bool)
-
+    
     # starting values and gaps at first border
     idxo = 0                                    # index on ogrd
     idxo_old = np.nan
@@ -233,28 +230,28 @@ def resample_1dim_lininterp(odat, ogrd, ngrd, idxn_start, fill_value=np.nan):
     gaps_border[:idxn] = True                   # mark gaps at low-value border 
     #if np.any(np.isnan(ngrd)==False) and (np.where(np.isnan(ngrd)==False)[0][0] != idxn_start):
     #    debug_here()
-        
+    
     # loop through ngrd: 
-        # cond 1) loop until the very last enty of ngrd.
-        # cond 2) stop as soon as remaining ngrd values are all higher than the maximum value of ogrd.
+     # cond 1) loop until the very last enty of ngrd.
+     # cond 2) stop as soon as remaining ngrd values are all higher than the maximum value of ogrd.
     while (idxn < len(ngrd)) and (ngrd[idxn] <= np.nanmax(ogrd)):
-      # lift idxo until ogrd is one step further (deeper, i.e. higher value) than ngrd.
-      while (idxo < len(ogrd)-1) and (ngrd[idxn] > ogrd[idxo]):
-        idxo += 1
-      # resampling
-      if idxo == idxo_old:                      # ngrd-resolution is higher than ogrd-resolution
-        gaps_center[idxn-1:idxn+1] = True       # --> mark idxn and idxn-1 as gaps (the very careful way! #! consider defining minimum span to also mark idxn-1)
-        ndat[idxn] = ndat[idxn-1]               # --> same value as above. These value remains if center-gaps are not masked.
-      else:                                     # centre values
-        diff_1 = -1*(ogrd[idxo-1] - ngrd[idxn]) # --> a positive number
-        diff_2 = ogrd[idxo] - ngrd[idxn]        # --> a positive number
-        diff_total = diff_1 + diff_2            # --> equivalent to ogrd[idxo] - ogrd[idxo-1]
-        # linearly weighted interpolation
-        ndat[idxn] = odat[idxo-1]*diff_2/diff_total + odat[idxo]*diff_1/diff_total
-      # increase idxn and renew idxo_old
-      idxo_old = idxo                         
-      idxn += 1
-
+        # lift idxo until ogrd is one step further (deeper, i.e. higher value) than ngrd.
+        while (idxo < len(ogrd)-1) and (ngrd[idxn] > ogrd[idxo]):
+            idxo += 1
+        # resampling
+        if idxo == idxo_old:                    # ngrd-resolution is higher than ogrd-resolution resulting in gaps_center
+            gaps_center[idxn-1:idxn+1] = True       # --> mark idxn and idxn-1 as gaps (the very careful way! #! consider defining minimum span to also mark idxn-1)
+            ndat[idxn] = ndat[idxn-1]               # --> same neighbors thus same value as before. This value remains if center-gaps are not masked.
+        else:                                   # centre values
+            diff_1 = -1*(ogrd[idxo-1] - ngrd[idxn]) # --> a positive number
+            diff_2 = ogrd[idxo] - ngrd[idxn]        # --> a positive number
+            diff_total = diff_1 + diff_2            # --> equivalent to ogrd[idxo] - ogrd[idxo-1]
+            # linearly weighted interpolation
+            ndat[idxn] = odat[idxo-1]*diff_2/diff_total + odat[idxo]*diff_1/diff_total
+        # increase idxn and renew idxo_old
+        idxo_old = idxo                         
+        idxn += 1
+    
     gaps_border[idxn:] = True                   # mark gaps at high-value border
     return(ndat, gaps_border, gaps_center)
     

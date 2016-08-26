@@ -12,6 +12,13 @@
 
 
 
+# --- some statistics
+    print('Statistics on ___:' \
+          '\n mean:   {}\n median: {}\n min:    {}\n max:    {}'.format(\
+          np.nanmean(foo), np.nanmedian(foo), \
+          np.nanmin(foo), np.nanmax(foo)))
+          
+          
 # =======================================================================================
 # TEST resampling loop
 # =======================================================================================

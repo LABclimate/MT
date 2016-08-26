@@ -83,22 +83,22 @@ def vars2speedup(lat_auxgrd, ncdat):
 # --------------------------------------------------
 def gen_auxgrd(ncdat, name):
     # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
-    if name == 'lat170eq80S90N_zeq60':
+    if name == 'lat170eq80S90N':
       lat = np.linspace(-80, 90, 170)  	        # latitudes
       z_t = ncdat.z_t.values 		        # depth levels
       z_w_top = ncdat.z_w_top.values 	        # depth levels
     # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
-    elif name == 'lat340eq80S90N_zeq60':    
+    elif name == 'lat340eq80S90N':    
       lat = np.linspace(-80, 90, 340)  	        # latitudes
       z_t = ncdat.z_t.values 		        # depth levels
       z_w_top = ncdat.z_w_top.values 	        # depth levels
     # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
-    elif name == 'lat198model_zeq60':
+    elif name == 'lat198model':
       lat = ncdat.MOC.lat_aux_grid[::2].values  # latitudes
       z_t = ncdat.z_t.values 		        # depth levels
       z_w_top = ncdat.z_w_top.values 	        # depth levels
     # lat: as in ncdat.lat_aux_grid | z: 60 boxes
-    elif name == 'lat395model_zeq60':
+    elif name == 'lat395model':
       lat = ncdat.MOC.lat_aux_grid.values       # latitudes
       z_t = ncdat.z_t.values 		        # depth levels
       z_w_top = ncdat.z_w_top.values 	        # depth levels

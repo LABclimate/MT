@@ -49,7 +49,7 @@ ncdat = xr.open_dataset(fpath+fname, decode_times=False)
 ATLboolmask = utils_mask.get_ATLbools(ncdat.REGION_MASK) # boolean mask
 # ---------------------------------------------------------------------------------------
 # - Spatial auxiliary grid
-auxgrd_name = ['lat395model_zeq60', 'lat198model_zeq60', 'lat170eq80S90N_zeq60', 'lat340eq80S90N_zeq60'][1]       # choose aux grid
+auxgrd_name = ['lat395model', 'lat198model', 'lat170eq80S90N', 'lat340eq80S90N'][1]       # choose aux grid
 lat_auxgrd, zT_auxgrd, z_w_top_auxgrd = utils_mask.gen_auxgrd(ncdat, auxgrd_name)
 lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very inappropriate
 # ---------------------------------------------------------------------------------------

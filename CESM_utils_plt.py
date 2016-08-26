@@ -52,29 +52,30 @@ ml.style.use('bmh')
 # =======================================================================================
 
 # wrapper to draw contour(f) or pcolorplot of any lat-depth/density variable
-def plot_MOC(xvar, yvar, var, nlevels=100, plttype='contour', min = [], max = [], to_newfigure=True, to_subplot=[0,0,0]):
+def plot_MOC(xvar, yvar, var, min = [], max = [], nlevels_col=11, levels_cont=[-10,0,10], plttype='pcolor+contour', to_newfig=True, to_subplot=[0,0,0]):
     ''' uses utils_plt.get_cmap()'''
     # colormap
     if min == []:   min = np.nanmin(var) # minimum value of varin
     if max == []:   max = np.nanmax(var)  # maximum value of varin
-     #cmap, norm = utils_plt.get_cmap(min, max, nlevels, scheme=utils_plt.get_viridis()) # viridis
-    cmap = utils_plt.shiftCMap(ml.cm.seismic, midpoint=1-max/(max-min), name='shifted') # shifted blue white red
+     #cmap, norm = utils_plt.get_cmap(min, max, nlevels_col, scheme=utils_plt.get_viridis()) # viridis
+     #cmap = utils_plt.shiftCMap(ml.cm.seismic, midpoint=1-max/(max-min), name='shifted') # shifted blue white red
+    cmap = discrete_cmap(base_cmap=ml.cm.seismic, N=nlevels_col) #! only works for symmetric intervals
     # open new figure
-    if to_newfigure == True:
+    if to_newfig == True:
         fig = plt.figure()
     # subplotting
     if np.sum(to_subplot) > 0:
         plt.subplot(to_subplot[0],to_subplot[1],to_subplot[2])
-    # draw plot
+    # draw plot    
     if plttype == 'contourf':
-        ax = plt.contourf(xvar, yvar, var, cmap=cmap, levels=np.linspace(min, max, nlevels))
+        ax = plt.contourf(xvar, yvar, var, cmap=cmap, levels=levels_cont, vmin=min, vmax=max)
     elif plttype == 'contour':
-        ax = plt.contaxur(xvar, yvar, var, cmap=cmap, levels=np.linspace(min, max, nlevels))
+        ax = plt.contour(xvar, yvar, var, cmap=cmap, levels=levels_cont, vmin=min, vmax=max)
     elif plttype == 'pcolor':
-        ax = plt.pcolor(xvar, yvar, var, cmap=cmap)
+        ax = plt.pcolor(xvar, yvar, var, cmap=cmap, vmin=min, vmax=max)
     elif plttype == 'pcolor+contour':
-        ax = plt.pcolor(xvar, yvar, var, cmap=cmap)
-        plt.contour(xvar, yvar, var, colors='black', levels=np.linspace(min, max, nlevels))
+        ax = plt.pcolor(xvar, yvar, var, cmap=cmap, vmin=min, vmax=max)
+        plt.contour(xvar, yvar, var, colors='black', levels=levels_cont, vmin=min, vmax=max)
     
     plt.colorbar(ax)
     plt.gca().invert_yaxis()
@@ -87,7 +88,7 @@ def plot_MOC(xvar, yvar, var, nlevels=100, plttype='contour', min = [], max = []
 
     plt.text(-10,600000, 'max: {}, min: {}'.format(round(np.nanmax(var),2), round(np.nanmin(var),2)))
     
-    if to_newfigure == True:    return(fig, ax)
+    if to_newfig == True:    return(fig, ax)
     else:                       return(ax)
 
 # wrapper to draw pcolorplot of any lat-lon variable using Basemap
@@ -199,3 +200,14 @@ def shiftCMap(cmap, start=0, midpoint=0.5, stop=1.0, name='shiftedcmap'):
 
     return newcmap
  
+
+def discrete_cmap(base_cmap=None, N=10):
+     """
+     Author: S.Lienert, lienert@climate.unibe.ch
+
+     Create an N-bin discrete colormap from the specified input map
+     """
+     base = plt.cm.get_cmap(base_cmap)
+     color_list = base(np.linspace(0, 1, N))
+     cmap_name = base.name + str(N)
+     return base.from_list(cmap_name, color_list, N)

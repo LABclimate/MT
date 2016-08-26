@@ -59,3 +59,19 @@ def calc_MV(ncdat):
 		name='meridional volume transport', 
 		attrs={'units':u'Sv'})
     return(MV)
+
+# =======================================================================================
+# - Compute meridional 2d-volume transport MVflat i.e. MV without multiplicaiton with DZU (in Sv/m)
+# =======================================================================================
+def calc_MVflat(ncdat):
+    '''
+    Comments:
+     > Conversion from cgs units to Sv by multiplication with 1e-12
+     #> Think about NOT to roll #!
+    '''
+    vvel = utils_mask.mask_ATLANTIC(ncdat.VVEL.mean(dim='time'), ncdat.REGION_MASK)
+    DXU = ncdat.DXU.values 		                    # x-spacing centered at U points
+    MVflat = xr.DataArray(vvel*DXU*1e-12, 
+		name='meridional volume transport', 
+		attrs={'units':u'Sv'})
+    return(MVflat)

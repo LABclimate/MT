@@ -75,34 +75,41 @@ utils_misc.ProgBar('done')
 '''
 
 # --- load variable using pickle
-def loadvar(filename):
-    print('> loading "' + filename + '" from file... ')
+def loadvar(path_to_var, str_varname='__', verbose=True):
+    if verbose: print(' > loading {}\n    from {}'.format(str_varname, path_to_var))
     sys.stdout.flush()    
-    with open(filename, 'rb') as f: 
+    with open(path_to_var, 'rb') as f: 
       var = pickle.load(f)
-    print(' --> Success!')
+    if verbose: print(' > success!')
     return(var)
 
 # --- save variable using pickle
-def savevar(var, filename):
-    print('> saving "' + filename + '" to file... ')
+def savevar(var, path_to_var, str_varname='__', verbose=True):
+    if verbose: print(' > saving {} to file...'.format(str_varname))
     sys.stdout.flush()    
-    with open(filename, 'wb') as f:
+    with open(path_to_var, 'wb') as f:
       pickle.dump(var, f)
-    print(' --> Success!')      
+    if verbose: print(' > success!')
 
 # --- try to load, else create and save
-def loadgetsave(fun_to_get_var, path_to_var):
+def loadgetsave(fun_to_get_var, path_to_var, str_varname='__', verbose=True, noload=False):
     ''' 
     Usage:
      > import utils_misc.loadgetsave as LGS
      > LGS(lambda: fun_to_get_var(args), path_to_var)
     '''
     try:
-        var = utils_misc.loadvar(path_to_var)
+        if noload: raise ValueError()
+        if verbose: print(' > trying to load {}\n    from {}...'.format(str_varname, path_to_var))
+        var = utils_misc.loadvar(path_to_var, verbose=False)
+        if verbose: print(' > success!\n')
     except:
+        if noload & verbose: print(' > no load (note that an eventually stored variable will be overwritten)\n > calculating {}...'.format(str_varname))
+        elif verbose: print(' > failed to load!\n > calculating {}...'.format(str_varname))
         var = fun_to_get_var()
-        utils_misc.savevar(var, path_to_var)
+        if verbose: print(' > success!\n > saving {} to file...'.format(str_varname))
+        utils_misc.savevar(var, path_to_var, verbose=False)
+        if verbose: print(' > success!\n')
     return(var)
 
 # --- create variable and save
@@ -125,6 +132,19 @@ def mkdir(dirname):
 #################################################################################################
 # COLLECTION OF UNTESTED FUNCTIONS 
 #################################################################################################
+
+# --- TextWrappers for indentions
+import textwrap
+
+user = "Username"
+prefix = user + ":\t\t"
+expanded_indent = textwrap.fill(prefix+'$', replace_whitespace=False)[:-1]
+subsequent_indent = ' ' * len(expanded_indent)
+wrapper = textwrap.TextWrapper(initial_indent=prefix,
+                               subsequent_indent=subsequent_indent)
+message = "LEFTLEFTLEFTLEFTLEFTLEFTLEFT RIGHTRIGHTRIGHT " * 3
+#print wrapper.fill(message)
+
 
 # --- find primefactors
 ''' Source:     http://datascientist.mabs.me/prime-factors-in-python/
