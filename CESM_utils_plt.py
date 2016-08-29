@@ -85,8 +85,6 @@ def plot_MOC(xvar, yvar, var, min = [], max = [], nlevels_col=11, levels_cont=[-
    #     plt.xticks(xticks[[int(i) for i in plt.xticks()[0][:-1]]])
    # if yticks:
    #     plt.yticks(yticks[[int(i) for i in plt.yticks()[0][:-1]]])
-
-    plt.text(-10,600000, 'max: {}, min: {}'.format(round(np.nanmax(var),2), round(np.nanmin(var),2)))
     
     if to_newfig == True:    return(fig, ax)
     else:                       return(ax)

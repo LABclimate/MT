@@ -130,7 +130,7 @@ def mkdir(dirname):
       print(' -> created new directory: ' + dirname)
 
 #################################################################################################
-# COLLECTION OF UNTESTED FUNCTIONS 
+# COLLECTION OF UNUSED OR UNTESTED FUNCTIONS 
 #################################################################################################
 
 # --- TextWrappers for indentions

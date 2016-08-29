@@ -38,7 +38,7 @@ ncdat = xr.open_dataset(fpath+fname, decode_times=False)
 # ---------------------------------------------------------------------------------------
 # - Spatial auxiliary grid
 auxgrd_name = ['lat395model', 'lat198model', 'lat170eq80S90N', 'lat340eq80S90N'][0]       # choose aux grid
-lat_auxgrd, zT_auxgrd, z_w_top_auxgrd = utils_mask.gen_auxgrd(ncdat, auxgrd_name)
+lat_auxgrd, zT_auxgrd, z_w_auxgrd = utils_mask.gen_auxgrd(ncdat, auxgrd_name)
 lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very inappropriate
 # ---------------------------------------------------------------------------------------
 # - Potential density and binning
@@ -94,8 +94,8 @@ MOC_mgrd_W, MWxint_mgrd = utils_MOC.calc_MOC_mgrd('W', MW, do_norm=True, dump_Mx
 dMOC_mgrd_W, dMOC_mgrd_W_norm, dMWxint_mgrd = utils_MOC.calc_MOC_mgrd_nparray('W', MW_dens, dump_Mxint=True)
 
 # ... on auxiliary grid
-MWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW.values, ncdat, path_auxgrd)
-MOC_auxgrd_W, MOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MWxint_auxgrd, 'forward', path_auxgrd)
+MWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_auxgrd, 'W', MW.values, ncdat, path_auxgrd)
+MOC_auxgrd_W, MOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_auxgrd, 'W', MWxint_auxgrd, 'forward', path_auxgrd)
  #MVxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MV_projauxgrd.values, ncdat, path_auxgrd)
  #MOC_auxgrd_V, MOC_auxgrd_V_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, zT_auxgrd, 'V', MVxint_auxgrd, path_auxgrd)
 dMWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, PD_bins, 'dW', MW_dens, ncdat, path_auxgrd)
@@ -178,7 +178,7 @@ utils_plt.print2pdf(fig, path_fig+'dMOC_mgrd_W_sig2')
 # =======================================================================================
 # -----------------------------------------------------------------------------------------
 # MOC_auxgrd_W
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour')
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_auxgrd, MOC_auxgrd_W_norm, nlevels=10, plttype='pcolor+contour')
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.xlim([-36,90])
 plt.title('MOC auxgrd W')
@@ -199,7 +199,7 @@ plt.xlim([-36,90])
 utils_plt.print2pdf(fig, path_fig+'dMOC_auxgrd_W_sig2')
 # -----------------------------------------------------------------------------------------
 # MWxint_auxgrd
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MWxint_auxgrd, nlevels=10, plttype='pcolor+contour')
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_auxgrd, MWxint_auxgrd, nlevels=10, plttype='pcolor+contour')
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.xlim([-36,90])
 plt.title('MWxint auxgrd')
@@ -256,5 +256,5 @@ plt.figure()
 plt.pcolor(ncdat.ANGLE*180/np.pi)
 plt.contour(ncdat.REGION_MASK)
 
-fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, MV_projauxgrd[:,:,59])
-fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, ncdat.VVEL[0,:,:,59])
+fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_auxgrd, MV_projauxgrd[:,:,59])
+fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_auxgrd, ncdat.VVEL[0,:,:,59])

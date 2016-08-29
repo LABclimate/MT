@@ -38,7 +38,7 @@ plt.gca().set_yticklabels(ticks_dens)
 # =======================================================================================
 # -----------------------------------------------------------------------------------------
 # MOC_auxgrd_W
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W, nlevels=10, plttype='pcolor+contour')
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_auxgrd, MOC_auxgrd_W, nlevels=10, plttype='pcolor+contour')
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.xlim([-36,90])
 plt.title('MOC auxgrd W')
@@ -55,7 +55,7 @@ plt.gca().set_yticklabels(ticks_dens)
 
 # -----------------------------------------------------------------------------------------
 # MWxint_auxgrd
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MWxint_auxgrd, nlevels=10, plttype='pcolor+contour')
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, z_w_auxgrd, MWxint_auxgrd, nlevels=10, plttype='pcolor+contour')
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.xlim([-36,90])
  #utils_plt.print2pdf(fig, 'testfigures/MWxint_auxgrd')

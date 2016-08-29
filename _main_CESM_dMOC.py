@@ -79,7 +79,7 @@ path_HU_mgrd_xmax   = dir_mgrd+'HU_mgrd_xmax'
 ATLboolmask = utils_mask.get_ATLbools(ncdat.REGION_MASK.values) # boolean mask
 # ---------------------------------------------------------------------------------------
 # - Spatial auxiliary grid
-lat_auxgrd, zT_auxgrd, z_w_top_auxgrd = utils_mask.gen_auxgrd(ncdat, auxgrd_name)
+lat_auxgrd, zT_auxgrd, z_w_auxgrd = utils_mask.gen_auxgrd(ncdat, auxgrd_name)
 lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very inappropriate
 # ---------------------------------------------------------------------------------------
 # - Density grid/bins
@@ -207,7 +207,7 @@ dMOC_auxgrd_V  = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, zdbc, 'dV', dMV_proj_di
 # - MOC Streamfunction (in depth space) (in Sv)
 #   (1) zonal integration
 MWxint_mgrd     = np.nansum(MW_mgrd, axis=2)
-MWxint_auxgrd   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_top_auxgrd, 'W', MW_mgrd.values, ncdat, dir_auxgrd)
+MWxint_auxgrd   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, z_w_auxgrd, 'W', MW_mgrd.values, ncdat, dir_auxgrd)
 #   (2) meridional integration
 MOC_auxgrd_W    = utils_MOC.normalise(utils_ana.nancumsum(MWxint_auxgrd, axis=1), ref='N')
 

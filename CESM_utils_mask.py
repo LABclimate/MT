@@ -28,7 +28,7 @@
 #                                         created gen_iter_maskcombo()
 #                                         created get_maxiter_depth()
 # 20-Mai-2016 - buerki@climate.unibe.ch : in gen_maxiter_depth() changed '<=' to '<' 
-#                                         reason: <= diggs into ground for both z_w_top and z_t.
+#                                         reason: <= diggs into ground for both z_w and z_t.
 # 					  added implemented new utils_misc.savevar functions
 # 24-Mai-2016 - buerki@climate.unibe.ch : changed MW to ncdat in various places
 #                                         created calc_HT_mgrd_xmax()
@@ -44,6 +44,7 @@ import numpy.ma as ma
 import pickle
 import CESM_utils_mask as utils_mask
 import UTILS_misc as utils_misc
+from IPython.core.debugger import Tracer; debug_here = Tracer()
 
 # =======================================================================================
 # mask any xarray with respect to values in the regional mask of the nc-data
@@ -59,12 +60,12 @@ import UTILS_misc as utils_misc
 #(mask>=6) & (mask!=7)  # ATL without Mediteranian
 def mask_ATLANTIC(varin, mask, outputformat='xr'):
     if outputformat=='ma':
-        return(ma.masked_array(varin, mask=np.array(mask>=0)))
+        return(ma.masked_array(varin, mask=np.array((mask>=6) & (mask!=7))))
     elif outputformat=='xr':
-        return(varin.where(mask>=0))
+        return(varin.where((mask>=6) & (mask!=7)))
 
 def get_ATLbools(mask):
-    return(np.array(mask>=0))
+    return(np.array((mask>=6) & (mask!=7)))
 
 # =======================================================================================
 # generate auxillary grid and related masks and mask-like iterators 
@@ -82,60 +83,44 @@ def vars2speedup(lat_auxgrd, ncdat):
 # - generate auxillary grid
 # --------------------------------------------------
 def gen_auxgrd(ncdat, name):
-    # lat: 170 equally spaced boxes from 80S to 90N | z: 60 boxes
-    if name == 'lat170eq80S90N':
+    if name == 'lat170eq80S90N':    # 170 equally spaced boxes from 80S to 90N
       lat = np.linspace(-80, 90, 170)  	        # latitudes
-      z_t = ncdat.z_t.values 		        # depth levels
-      z_w_top = ncdat.z_w_top.values 	        # depth levels
-    # lat: 340 equally spaced boxes from 80S to 90N | z: 60 boxes
-    elif name == 'lat340eq80S90N':    
+    elif name == 'lat340eq80S90N':  # 340 equally spaced boxes from 80S to 90N
       lat = np.linspace(-80, 90, 340)  	        # latitudes
-      z_t = ncdat.z_t.values 		        # depth levels
-      z_w_top = ncdat.z_w_top.values 	        # depth levels
-    # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
-    elif name == 'lat198model':
+    elif name == 'lat198model':     # as in ncdat.lat_aux_grid but only every other entry
       lat = ncdat.MOC.lat_aux_grid[::2].values  # latitudes
-      z_t = ncdat.z_t.values 		        # depth levels
-      z_w_top = ncdat.z_w_top.values 	        # depth levels
-    # lat: as in ncdat.lat_aux_grid | z: 60 boxes
-    elif name == 'lat395model':
+    elif name == 'lat395model':     # as in ncdat.lat_aux_grid
       lat = ncdat.MOC.lat_aux_grid.values       # latitudes
-      z_t = ncdat.z_t.values 		        # depth levels
-      z_w_top = ncdat.z_w_top.values 	        # depth levels
-
-    return(lat, z_t, z_w_top)
+    return(lat)
 
 # --------------------------------------------------
-# generate mask_auxgrd, a mask for grid-overlay
+# generate mask_auxgrd_overlay_lat, a mask for grid-overlay
 # --------------------------------------------------
-def gen_mask_grd_overlay_lat(lat_auxgrd, ncdat, path_vars, savevar=True):
+def gen_mask_auxgrd_overlay_lat(lat_auxgrd, ncdat):
     ''' Boolean of size (nlatAUXgrid, nlatMODELgrid, nlonMODELgrid)
         It is True where latitudes of auxillary and model grid lie in the same box. 
     '''
-    print('> generating mask_auxgrd')
+    print('> generating mask_auxgrd_overlay_lat')
     lat_mgrdT, iter_lat_auxgrd, iter_lat_mgrdT, iter_lon_mgrdT = vars2speedup(lat_auxgrd, ncdat) 	# np-arrays for speed
-    mask_auxgrd = np.zeros([len(lat_auxgrd), len(ncdat.nlat), len(ncdat.nlon)],dtype=bool) 	# pre-allocation as False
+    mask_auxgrd_overlay_lat = np.zeros([len(lat_auxgrd), len(ncdat.nlat), len(ncdat.nlon)],dtype=bool) 	# pre-allocation as False
 
     for n in iter_lat_auxgrd:
       utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
       for j in iter_lat_mgrdT:
         for i in iter_lon_mgrdT:
           if lat_auxgrd[n] <= lat_mgrdT[j,i] < lat_auxgrd[n+1]:
-            mask_auxgrd[n,j,i] = True
+            mask_auxgrd_overlay_lat[n,j,i] = True
     utils_misc.ProgBar('done')
 
-    if savevar == True:                                         # save to file
-      utils_misc.savevar(mask_auxgrd, path_vars+'mask_auxgrd')
-
-    return(mask_auxgrd)
+    return(mask_auxgrd_overlay_lat)
 
 # --------------------------------------------------
 # generate iter_maskcombo
 # --------------------------------------------------
-def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars, savevar=True):
+def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd_overlay_lat):
     ''' Array of size (nlatAUXgrid, nlatMODELgrid)
         Each element is a np.Array containing longitude-indices (i) where 
-	both, mask_auxgrd and the region mask on the model grid are True. 
+	both, mask_auxgrd_overlay_lat and the region mask on the model grid are True. 
     '''
     print('> generating iter_maskcombo')
     # np-arrays for speed
@@ -147,11 +132,8 @@ def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars, savevar=True):
     for n in iter_lat_auxgrd:
       utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
       for j in iter_lat_mgrdT:
-        iter_maskcombo[n,j] = np.where((mask_auxgrd[n,j,:]) and (mask_modgrd[j,:]>=6))[0]
+        iter_maskcombo[n,j] = np.where((mask_auxgrd_overlay_lat[n,j,:]) & (mask_modgrd[j,:]>=6))[0]
     utils_misc.ProgBar('done')
-
-    if savevar == True:                                         # save to file
-      utils_misc.savevar(iter_maskcombo, path_vars+'iter_maskcombo')
 
     return(iter_maskcombo)
 
@@ -174,7 +156,7 @@ def gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd, path_vars, savevar=True):
 # =======================================================================================
 
 # ...for model grid
-def calc_H_mgrd_xmax(ncdat, TorUgrid, path_vars, savevar=True):
+def calc_H_mgrd_xmax(ncdat, TorUgrid):
     if TorUgrid == 'T':
       Hm = utils_mask.mask_ATLANTIC(ncdat.HT, ncdat.REGION_MASK) # mask Atlantic
       fname = 'HT_mgrd_xmax'
@@ -183,19 +165,14 @@ def calc_H_mgrd_xmax(ncdat, TorUgrid, path_vars, savevar=True):
       fname = 'HU_mgrd_xmax'
 
     H_mgrd_xmax = Hm.max(dim='nlon')    # find max along longitudes
-    if savevar == True:                 # save to file
-      utils_misc.savevar(H_mgrd_xmax, path_vars + fname) 
+
     return(H_mgrd_xmax)
 
 # ...for auxillary grid
-def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, path_vars):
+def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, iter_maskcombo):
     # a few variables to speed up subsequent loops
     iter_lat_auxgrd = np.arange(len(lat_auxgrd))
     iter_lat_mgrd = np.arange(len(ncdat.nlat))
-
-    # get i-iterators for auxgrd-Atlantic-mask
-    try:    iter_maskcombo = utils_misc.loadvar(path_vars+'iter_maskcombo')     
-    except: iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, mask_auxgrd)
 
     # find maximal depth along longitudes
     if TorUgrid == 'T':
@@ -212,8 +189,5 @@ def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, path_vars):
         for i in iter_maskcombo[n,j]:
           H_auxgrd_xmax[n] = np.nanmax([H_auxgrd_xmax[n], H[j,i]])
     utils_misc.ProgBar('done')
-
-    if savevar == True:                                         # save to file
-      utils_misc.savevar(H_auxgrd_xmax, path_vars + fname)  
 
     return(H_auxgrd_xmax)

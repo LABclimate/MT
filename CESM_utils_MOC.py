@@ -69,7 +69,7 @@ def calc_MOC_mgrd(transport_type, M, dump_Mxint=False):
 # ---------------------------------------------------------------------------------------
 # - zonal integration of Volume Transport along auxillary grid
 # ---------------------------------------------------------------------------------------
-def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, savevar=True):
+def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, mask_auxgrd_overlay_lat, iter_maskcombo):
     '''
     Input:
      > lat_ax               : meridional axis of auxgrd | nparray
@@ -77,8 +77,8 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
      > transport_type       : either 'W', 'V', 'dW' or 'dV' | string
      > M                    : volume transport (MW, MV, dMW or dMV) | nparray of shape [nz, nlat, nlon]
      > ncdat                : netCDFdata to load REGION_MASK
-     > path_vars            : path for saving variables | string
-     > savevar              : boolean
+     > mask_auxgrd_overlay_lat  : mask1TODOC
+     > iter_maskcombo           : mask2TODOC
     Output:
      > Mxint                : zonally integrated volume transport of shape [nz, nlat] | xarray
     Steps:
@@ -95,12 +95,6 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
     # a few variables to speed up subsequent loops
     iter_lat_ax = np.arange(len(lat_ax))
     iter_lat_M = np.arange(M.shape[1])
-
-    # get masks and iteration-indices to speed up subsequent loops (calculate if loading from file fails)
-    try:    mask_auxgrd = utils_misc.loadvar(path_vars+'mask_auxgrd')
-    except: mask_auxgrd = utils_mask.gen_mask_grd_overlay_lat(lat_ax, ncdat, path_vars)
-    try:    iter_maskcombo = utils_misc.loadvar(path_vars+'iter_maskcombo')
-    except: iter_maskcombo = utils_mask.gen_iter_maskcombo(lat_ax, ncdat, mask_auxgrd, path_vars)
 
     # zonal integration along aux grid
       # ... on depth-axis
@@ -125,9 +119,6 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, path_vars, saveva
               Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
         utils_misc.ProgBar('done')
     
-    # save to file and return
-    if savevar == True:
-        utils_misc.savevar(Mxint, path_vars+'M'+transport_type+'xint_auxgrd')  
     return(Mxint)
 
 # ---------------------------------------------------------------------------------------

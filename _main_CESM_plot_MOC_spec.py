@@ -22,14 +22,14 @@ plt.suptitle('density binning from {} to {} in {} steps'.format(dbc.min(), dbc.m
 
 plt.subplot(3,1,1)
 plt.title('MOC on depth axis on auxgrd')
-ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MOC_auxgrd_W, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
+ax = utils_plt.plot_MOC(lat_auxgrd, z_w_auxgrd, MOC_auxgrd_W, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.xlim([-36,90])
 
 plt.subplot(3,1,2)
 plt.title('MW on depth axis longitudinally integrated on auxgrd (in Sv)')
 plt.ylabel('depth')
-ax = utils_plt.plot_MOC(lat_auxgrd, z_w_top_auxgrd, MWxint_auxgrd, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
+ax = utils_plt.plot_MOC(lat_auxgrd, z_w_auxgrd, MWxint_auxgrd, nlevels=10, plttype='pcolor+contour', to_newfigure=False)
 plt.plot(lat_auxgrd,HT_auxgrd_xmax)  				# plot seafloor
 plt.xlim([-36,90])
 

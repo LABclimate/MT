@@ -21,15 +21,15 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+import CESM_utils_analysis as utils_ana
 import CESM_utils_mask as utils_mask
 import CESM_utils_conv as utils_conv
 import UTILS_misc as utils_misc
 
-
 # =======================================================================================
 # - cumsum
 # =======================================================================================
-def nancumsum(array, axis):
+def nancumsum(array, axis=0):
     ''' Method: cumulative sum along axis ignoring NaNs.
                 only pandas ignores NaNs in cumsum function.
         Input:
@@ -48,7 +48,9 @@ def nancumsum(array, axis):
 # =======================================================================================
 # - canonical cumsum with span=n
 # =======================================================================================
-def canonical_cumsum(array, n, axis=0, crop=False):
+def canonical_cumsum(array, n, axis, crop=True):
+    from IPython.core.debugger import Tracer; debug_here = Tracer()
+
     ''' Input:
          > array : 1dimensional np-array or list
          > n     : windowsize (n>0)
@@ -58,20 +60,26 @@ def canonical_cumsum(array, n, axis=0, crop=False):
                    note: if ndim of array is >1 then the output will always be cropped.
                          --> did not find a function like np.take to /access/ an array.
     '''
+    ndims = len(array.shape)
+    # pandas doesn't know negative axes-allocation
+    if axis<0:
+        axis = ndims+axis
+        
     if n<=0: 
       sys.exis('The windowsize n must be chosen greater than 0!')
-    
-    if len(array.shape)==1:
-        b = np.cumsum(array)
+    if ndims==1:
+        b = utils_ana.nancumsum(array)
         b[n:] = b[n:] - b[:-n]
         if crop==True:
             b = b[n-1:]  
         return(b)
     else:
         lenax = array.shape[axis]
-        b = np.cumsum(array, axis=axis)
-        c = np.take(b,np.arange(n-1,lenax),axis=axis) - np.take(b,np.arange(lenax-n),axis=axis)
-        return(c)
+        b = utils_ana.nancumsum(array, axis=axis)
+        b_first = np.expand_dims(np.take(b, n-1, axis=axis), axis=axis)
+        c = np.take(b,np.arange(n,lenax),axis=axis) - np.take(b,np.arange(lenax-n),axis=axis)
+        d = np.concatenate((b_first, c), axis=axis)
+        return(d)
 
 # =======================================================================================
 # - running mean

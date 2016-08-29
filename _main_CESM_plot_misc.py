@@ -16,6 +16,10 @@ path_fig = '../figures/160711/'
 # =======================================================================================
 #  BSF / MOC
 # =======================================================================================
+var = MV[0,:,:]
+var[190:300,-65:-45] = np.zeros_like(var[190:300,-65:-45])
+fig, map = utils_plt.plot_BSF(var, 'T', nlevels = 10)
+
 # -----------------------------------------------------------------------------------------
 # BSF on geographical grid calculated by model
 BSF_model = utils_mask.mask_ATLANTIC(ncdat.BSF.isel(time=0), ncdat.REGION_MASK)
@@ -24,7 +28,7 @@ plt.title('BSF model on T grid')
 utils_plt.print2pdf(fig, path_fig+'BSF_model_T')
 # -----------------------------------------------------------------------------------------
 # BSF on model grid
-fig, map = utils_plt.plot_BSF(BSF_mgrd, 'U', nlevels=100)
+fig, map = utils_plt.plot_BSF(BSF_mmgrd, 'U', nlevels=100)
 plt.title('BSF mgrd on U grid')
 utils_plt.print2pdf(fig, 'testfigures/BSF_mgrd_U')
 # -----------------------------------------------------------------------------------------
@@ -69,5 +73,5 @@ plt.figure()
 plt.pcolor(ncdat.ANGLE*180/np.pi)
 plt.contour(ncdat.REGION_MASK)
 
-fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, MV_projauxgrd[:,:,59])
-fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_top_auxgrd, ncdat.VVEL[0,:,:,59])
+fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_auxgrd, MV_projauxgrd[:,:,59])
+fig, ax = utils_plt.plot_MOC(ncdat.VVEL.TLAT[:,0], z_w_auxgrd, ncdat.VVEL[0,:,:,59])
