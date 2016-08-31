@@ -69,20 +69,19 @@ def calc_MOC_mgrd(transport_type, M, dump_Mxint=False):
 # ---------------------------------------------------------------------------------------
 # - zonal integration of Volume Transport along auxillary grid
 # ---------------------------------------------------------------------------------------
-def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, mask_auxgrd_overlay_lat, iter_maskcombo):
+def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, mask_auxgrd_overlay_lat, iter_maskcombo):
     '''
     Input:
      > lat_ax               : meridional axis of auxgrd | nparray
      > zd_ax                : vertical or density axis of auxgrd | nparray
      > transport_type       : either 'W', 'V', 'dW' or 'dV' | string
      > M                    : volume transport (MW, MV, dMW or dMV) | nparray of shape [nz, nlat, nlon]
-     > ncdat                : netCDFdata to load REGION_MASK
      > mask_auxgrd_overlay_lat  : mask1TODOC
      > iter_maskcombo           : mask2TODOC
     Output:
      > Mxint                : zonally integrated volume transport of shape [nz, nlat] | xarray
     Steps:
-     > generate mask (mask_auxgrd) that is 'True' where latitudes of both grids lie in the same box
+     > use mask (mask_auxgrd) that is 'True' where latitudes of both grids lie in the same box
      > calculate Mxint by zonal integration along aux grid
      > n-loop: over latitude on aux grid
      >   j-loop: over latitudes on model grid
@@ -100,7 +99,7 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, ncdat, mask_auxgrd_overl
       # ... on depth-axis
     if (transport_type == 'W') or (transport_type == 'V'):
         print('> zonal integration')
-        Mxint = np.zeros([len(zd_ax), len(lat_ax)])      # pre-allocation with zeros (np-array like for speed)
+        Mxint = np.zeros([len(zd_ax), len(lat_ax)])      # pre-allocation with zeros
         for n in iter_lat_ax:
           utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax))
           for j in iter_lat_M:

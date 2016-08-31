@@ -24,7 +24,6 @@ import CESM_utils_conv as utils_conv
 import UTILS_misc as utils_misc
 import CESM_utils_transports as utils_transp
 import CESM_utils_MOC as utils_MOC
-import CESM_utils_dMOC as utils_dMOC
 import CESM_utils_BSF as utils_BSF
 import CESM_utils_time as utils_time
 import CESM_paths as paths

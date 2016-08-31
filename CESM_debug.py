@@ -36,6 +36,15 @@ nd = utils_conv.resample_colwise(od[unsort], og[unsort], ng, method='wmean')
 #print('\n')
 
 
+# =======================================================================================
+# Test densT-->densU and Test utils_ana.canonical_cumsum()
+# =======================================================================================
+
+densT = np.array([[1,2,3,4,5,6,7,8,9,10],[2,3,4,5,6,7,8,9,10,11],[10,3,10,1,20,10,10,10,10,10]], dtype=float)
+densT = np.expand_dims(densT,axis=0)
+densT = np.concatenate((densT, densT*2), axis=0)
+densT = densT[:,:,:-3]
+
 
 # =======================================================================================
 # Count number of negative gradients in RHO or sig2 and find the most negative one.

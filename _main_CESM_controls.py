@@ -24,7 +24,6 @@ import CESM_utils_conv as utils_conv
 import UTILS_misc as utils_misc
 import CESM_utils_transports as utils_transp
 import CESM_utils_MOC as utils_MOC
-import CESM_utils_dMOC as utils_dMOC
 import CESM_utils_BSF as utils_BSF
 import CESM_utils_time as utils_time
 import CESM_paths as paths
@@ -160,12 +159,6 @@ MOC_auxgrd_W, MOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, z_w_auxg
 dMOC_mgrd_W, dMOC_mgrd_W_norm, dMWxint_mgrd = utils_MOC.calc_MOC_mgrd_nparray('W', dMW, dump_Mxint=True)
 dMWxint_auxgrd = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, db, 'dW', dMW, ncdat, path_auxgrd)
 dMOC_auxgrd_W, dMOC_auxgrd_W_norm = utils_MOC.calc_MOC_auxgrd(lat_auxgrd, db, 'W', dMWxint_auxgrd, 'forward', path_auxgrd)
-
-# ... old stuff with utils_dMOC
- #dMWxint_auxgrd = utils_dMOC.calc_dMxint_auxgrd(lat_auxgrd, zT_auxgrd, 'W', MW_mgrd.values, sig2, db, ncdat, path_auxgrd)
- #dMOC_auxgrd_W = utils_dMOC.calc_dMOC_auxgrd(lat_auxgrd, db, 'W', dMWxint_auxgrd, ncdat, path_auxgrd, do_norm=False)
- #dMOC_mgrd_W, dMxint_mgrd = utils_dMOC.calc_dMOC_mgrd('W', MW_mgrd.values, sig2, db, do_norm=False, dump_dMxint=True)
- #dMOC_mgrd_W_norm = dMOC_mgrd_W - np.tile(dMOC_mgrd_W[:,-1],(384,1)).T
 
 # =======================================================================================
 #  Zonal maxima of ocean depth

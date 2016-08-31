@@ -24,7 +24,6 @@ import CESM_utils_conv as utils_conv
 import UTILS_misc as utils_misc
 import CESM_utils_transports as utils_transp
 import CESM_utils_MOC as utils_MOC
-import CESM_utils_dMOC as utils_dMOC
 import CESM_utils_BSF as utils_BSF
 import CESM_utils_time as utils_time
 import CESM_paths as paths
@@ -53,7 +52,7 @@ elif CESMversion==4:    ncdat = ncdat4
 # =======================================================================================
 #  Settings and Directories
 # =======================================================================================
-auxgrd_name = ['lat395model', 'lat198model', 'lat170eq80S90N', 'lat340eq80S90N'][1] # choose aux grid
+auxgrd_name = ['lat395model', 'lat198model', 'lat99model', 'lat170eq80S90N', 'lat340eq80S90N'][2] # choose aux grid
  #1 dbsetup = np.array([[20, 33, 14], [33.1, 36, 11], [36.05, 37.5, 11], [38, 43, 11]]) # setup for density bins [lower, upper, steps]
  #2 dbsetup = np.array([[12, 22, 3], [25,30, 3], [31,35,6], [35, 38, 40], [38.5,42, 3]]) # setup for density bins [lower, upper, steps]
  #3 dbsetup = np.array([[11, 30, 6], [30,35,6], [35, 36.5, 51], [36.5,37, 51], [37,43, 7]]) # setup for density bins [lower, upper, steps]
@@ -105,12 +104,8 @@ sig2 = gsw.sigma2(SA, CT)                   # potential density anomaly referenc
 RHO = ncdat.RHO[0,:,:,:].values*1000-1000   # in-situ density anomaly [SI]
 if densChoice == 'sig2': densT = sig2
 elif densChoice == 'rho': densT = RHO
+
 # - conversion T-->U
-
-#densT = np.array([[1,2,3,4,5,6,7,8,9,10],[1,2,3,4,5,6,7,8,9,10],[10,10,10,10,10,10,10,10,10,10]], dtype=float)
-#densT = np.expand_dims(densT,axis=0)
-#densT = densT[:,:,:-3]
-
 densU = np.zeros_like(densT)
 foo1 = utils_ana.canonical_cumsum(densT, 2, axis=-1)
 densU[:,:-1,:-1] = .25*utils_ana.canonical_cumsum(foo1, 2, axis=-2)
@@ -122,9 +117,9 @@ densU[:,-1,-1] = densT[:,-1,-1]
 dbb = np.concatenate((np.linspace(dbsetup[0,0],dbsetup[0,1],dbsetup[0,2]), np.linspace(dbsetup[1,0],dbsetup[1,1],dbsetup[1,2]), np.linspace(dbsetup[2,0],dbsetup[2,1],dbsetup[2,2]), np.linspace(dbsetup[3,0],dbsetup[3,1],dbsetup[3,2]), np.linspace(dbsetup[4,0],dbsetup[4,1],dbsetup[4,2])))
 dbc = np.convolve(dbb, np.array([.5,.5]))[1:-1]
 # depth of isopycnals (zdbbc) calculated as z(dbc) (=zdbc) and as c(zdbb) (=zdbbc)
-z_t_3d = utils_conv.exp_k_to_kji(ncdat.z_t, densT.shape[-2], densT.shape[-1])
-zdbc = LGS(lambda: utils_conv.resample_colwise(z_t_3d, densT, dbc, 'lin', fill_value=np.nan, mask = ATLboolmask, mono_method='sort'), path_zdbc, 'zdbc', noload=False)
-zdbb = LGS(lambda: utils_conv.resample_colwise(z_t_3d, densT, dbb, 'lin', fill_value=np.nan, mask = ATLboolmask, mono_method='sort'), path_zdbb, 'zdbb', noload=False)
+z_t_3d = utils_conv.exp_k_to_kji(ncdat.z_t, densU.shape[-2], densU.shape[-1])
+zdbc = LGS(lambda: utils_conv.resample_colwise(z_t_3d, densU, dbc, 'lin', fill_value=np.nan, mask = ATLboolmask, mono_method='sort'), path_zdbc, 'zdbc', noload=False)
+zdbb = LGS(lambda: utils_conv.resample_colwise(z_t_3d, densU, dbb, 'lin', fill_value=np.nan, mask = ATLboolmask, mono_method='sort'), path_zdbb, 'zdbb', noload=False)
 zdbbc = np.ones_like(zdbc) * np.nan
 for j in np.arange(zdbb.shape[-2]):
     for i in np.arange(zdbb.shape[-1]):
@@ -168,7 +163,7 @@ del dz3d, TAREA3d, vol3d, inds
 # - temperature -------------------------------------------------------------------------
 T = ncdat.TEMP.mean(dim='time')
 T = utils_mask.mask_ATLANTIC(T, ncdat.REGION_MASK)
-#T_dens = utils_conv.resample_colwise(T.values, densT, dbc, method='lin', fill_value=np.nan, mask=ATLboolmask, mono_method='sort')
+#T_dens = utils_conv.resample_colwise(T.values, densU, dbc, method='lin', fill_value=np.nan, mask=ATLboolmask, mono_method='sort')
 # - Zonal maxima of ocean depth --------------------------------------------------------
 HT_auxgrd_xmax  = LGS(lambda: utils_mask.calc_H_auxgrd_xmax(lat_auxgrd, ncdat, 'T', masks_auxgrd['iter_maskcombo']), path_HT_auxgrd_xmax, 'HT_auxgrd_xmax', noload=False)
 HT_mgrd_xmax    = LGS(lambda: utils_mask.calc_H_mgrd_xmax(ncdat, 'T'), path_HT_mgrd_xmax, 'HT_mgrd_xmax', noload=False)
@@ -179,21 +174,22 @@ HU_mgrd_xmax    = LGS(lambda: utils_mask.calc_H_mgrd_xmax(ncdat, 'U'), path_HU_m
 #  Volume transports (in Sv)
 # =======================================================================================
 # - MV on model grid
-MV      = utils_transp.calc_MV(ncdat)       # = V * DX *DZ
-MVf     = utils_transp.calc_MVflat(ncdat)   # = V * DX
-# - mask
-MV[:,190:300,-65:-45] = np.nan*np.ones_like(MV[:,190:300,-65:-45])
-MVf[:,190:300,-65:-45] = np.nan*np.ones_like(MVf[:,190:300,-65:-45])
+MV      = utils_transp.calc_MV(ncdat).values        # = V * DX *DZ
+MVf     = utils_transp.calc_MVflat(ncdat).values    # = V * DX
+# - mutations
+MV = np.ones_like(MV)                                                  # mutation
+MVf = np.ones_like(MV)                                                 # mutation
+MV[:,190:300,-65:-45] = np.nan*np.ones_like(MV[:,190:300,-65:-45])      # mask
+MVf[:,190:300,-65:-45] = np.nan*np.ones_like(MVf[:,190:300,-65:-45])    # mask
 
+# ---------------------------------------------------------------------------------------
 # - resampled on density axis
-dMV         = LGS(lambda: utils_conv.resample_colwise(MV.values, ncdat.z_t.values, zdbc, method='dMV', fill_value=np.nan, mask = ATLboolmask, mono_method='force'), path_dMV, 'dMV', noload=boolLGSnoload)
-dMVf        = LGS(lambda: utils_conv.resample_colwise(MVf.values, ncdat.z_t.values, zdbc, method='dMV', fill_value=np.nan, mask = ATLboolmask, mono_method='force'), path_dMVf, 'dMVf', noload=boolLGSnoload) #B
- #dMVf     = LGS(lambda: utils_conv.resample_colwise(MVf.values, densT, dbc, method='dMV', fill_value=np.nan, mask = ATLboolmask, mono_method='force'), path_dMVfp, 'dMVfp', noload=boolLGSnoload) #A
+ #dMV         = LGS(lambda: utils_conv.resample_colwise(MV, ncdat.z_t.values, zdbc, method='dMV', fill_value=np.nan, mask = ATLboolmask, mono_method='force'), path_dMV, 'dMV', noload=boolLGSnoload)
+ #dMVf        = LGS(lambda: utils_conv.resample_colwise(MVf, ncdat.z_t.values, zdbc, method='dMV', fill_value=np.nan, mask = ATLboolmask, mono_method='force'), path_dMVf, 'dMVf', noload=boolLGSnoload) #B
+ #dMVf     = LGS(lambda: utils_conv.resample_colwise(MVf.values, densU, dbc, method='dMV', fill_value=np.nan, mask = ATLboolmask, mono_method='force'), path_dMVfp, 'dMVfp', noload=boolLGSnoload) #A
  #dMVf     = LGS(lambda: utils_conv.resample_colwise(MVf.values, ncdat.z_t.values, zdbbc, method='dMV', fill_value=np.nan, mask = ATLboolmask, mono_method='force'), path_dMVfp, 'dMVfp', noload=boolLGSnoload) #C
-# - projection on auxiliary grid i.e. towards N (same shape as on model grid)
-MVp         = utils_conv.project_on_auxgrd(MV.values, ncdat.ANGLE.values)
-dMVp        = utils_conv.project_on_auxgrd(dMV, ncdat.ANGLE.values)
-dMVfp       = utils_conv.project_on_auxgrd(dMVf, ncdat.ANGLE.values)
+ #dMVp        = utils_conv.project_on_auxgrd(dMV, ncdat.ANGLE.values)
+ #dMVfp       = utils_conv.project_on_auxgrd(dMVf, ncdat.ANGLE.values)
 
 # =======================================================================================
 #  Streamfunctions - V method
@@ -204,39 +200,39 @@ BSF_mgrd, MVzint = utils_BSF.calc_BSF_mgrd(MV, dump_MVzint=True)
 
 # ---------------------------------------------------------------------------------------
 # - MOC Streamfunction (in depth space) (in Sv)
-#   (1) zonal integration
-MVp = np.ones_like(MVp)
-MV = np.ones_like(MVp)
+#   (1) projection on auxilary grid
+MVp         = utils_conv.project_on_auxgrd(MV, ncdat.ANGLE.values)
+#   (2) zonal integration
 MVxint_mgrd     = np.nansum(MV, axis=2)
-MVxint_auxgrd   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, ncdat.z_t.values, 'V', MVp, ncdat, masks_auxgrd['overlay_lat'], masks_auxgrd['iter_maskcombo'])
-#   (2) vertical integration
+MVxint_auxgrd   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, ncdat.z_t.values, 'V', MVp, masks_auxgrd['overlay_lat'], masks_auxgrd['iter_maskcombo'])
+#   (3) vertical integration
 MOC_mgrd_V      = utils_ana.nancumsum(MVxint_mgrd, axis=0)
 MOC_auxgrd_V    = utils_ana.nancumsum(MVxint_auxgrd, axis=0)
 
 # ---------------------------------------------------------------------------------------
 # - dMOC Streamfunction (in density space) (in Sv)
 
-# (M0) ANDREAS
-# ------------
+# (M0)
+# -----
 #   (1) vertical integration of MV (first! as weighting known in depth-space)
-MVc         = utils_ana.nancumsum(MV.values, axis=0)
+MVc         = utils_ana.nancumsum(MV, axis=0)
 #   (2) resampling on density axis
 dMVc        = utils_conv.resample_colwise(MVc, ncdat.z_t.values, zdbc, method='dMV', fill_value=np.nan, mask = ATLboolmask, mono_method='force') # II
- #dMVc        = utils_conv.resample_colwise(MVc, densT, db, method='dMV_db', fill_value=np.nan, mask = ATLboolmask, mono_method='force') # I
+ #dMVc        = utils_conv.resample_colwise(MVc, densU, db, method='dMV_db', fill_value=np.nan, mask = ATLboolmask, mono_method='force') # I
 #   (3) projection on auxilary grid
 dMVcp       = utils_conv.project_on_auxgrd(dMVc, ncdat.ANGLE.values)
 #   (4) zonal integration
 dMOC_mgrd_V_0   = np.nansum(dMVc, axis=2)
-dMOC_auxgrd_V_0 = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, dbc, 'dV', dMVcp, ncdat, masks_auxgrd['overlay_lat'], masks_auxgrd['iter_maskcombo'])
+dMOC_auxgrd_V_0 = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, dbc, 'dV', dMVcp, masks_auxgrd['overlay_lat'], masks_auxgrd['iter_maskcombo'])
 
 
-# (M1) LEVYN
-# ------------
+# (M1)
+# -----
 #   (1) integration of MVfp along density axis weighting with ddb or dzdb
 ddb3d       = utils_conv.exp_k_to_kji(ddb, dzdb.shape[-2], dzdb.shape[-1])
 dMVfc       = utils_ana.nancumsum(dMVf*dzdb, axis=0)
 #   (2) projection on auxilary grid
 dMVfcp      = utils_conv.project_on_auxgrd(dMVfc, ncdat.ANGLE.values)
-#   (3) zonal integration of dMVp
+#   (3) zonal integration of dMVfc(p)
 dMOC_mgrd_V_B     = np.nansum(dMVfc, axis=-1)
-dMOC_auxgrd_V_B   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, zdbc, 'dV', dMVfcp, ncdat, masks_auxgrd['overlay_lat'], masks_auxgrd['iter_maskcombo'])
+dMOC_auxgrd_V_B   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, zdbc, 'dV', dMVfcp, masks_auxgrd['overlay_lat'], masks_auxgrd['iter_maskcombo'])

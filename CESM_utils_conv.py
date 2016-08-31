@@ -17,7 +17,7 @@
 # 30-Apr-2016 - buerki@climate.unibe.ch : created this toolbox
 #                                         added add_cyclic()
 # ??          - buerki@climate.unibe.ch : added project_on_auxgrd()
-# 15-Jun-2016 - buerki@climate.unibe.ch : added resample_1dim_lininterp() (migration from utils_dMOC)
+# 15-Jun-2016 - buerki@climate.unibe.ch : added resample_1dim_lininterp()
 # 06-Jul-2016 - buerki@climate.unibe.ch : added exp_k_to_kji()
 # 07-Jul-2016 - buerki@climate.unibe.ch : added exp_ji_to_kji()
 #################################

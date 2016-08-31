@@ -83,6 +83,9 @@ def get_path2vars(vartype, CESMversion, mkdir=False):
     # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
     elif vartype == 'lat198model':
         dirname = vars_root+'vars_auxgrd/lat198model/'
+    # lat: as in ncdat.lat_aux_grid but only every other entry | z: 60 boxes
+    elif vartype == 'lat99model':
+        dirname = vars_root+'vars_auxgrd/lat99model/'        
     # Raise error for invalid key
     else:
         sys.exit('Invalid key for path2vars')
