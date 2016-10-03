@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import time
 import sys
 sys.path.append('/home/buerki/Documents/MT/scripts/')
+
 import CESM_utils_mask as utils_mask
 import CESM_utils_plt as utils_plt
 import CESM_utils_conv as utils_conv
@@ -30,11 +31,13 @@ from IPython.core.debugger import Tracer; debug_here = Tracer()
 # =============================================================================
 #  Paths
 # =============================================================================
-path_grd = paths.get_path2vars('grd', mkdir=True)
-path_corr = paths.get_path2vars('corr', mkdir=True)
-path_figs = paths.get_path2figs('corr', mkdir=True)
+CESMversion = 4
+path_grd = paths.get_path2vars('mgrd', CESMversion, mkdir=True) #? mgrd
+path_corr = paths.get_path2vars('corr', CESMversion, mkdir=True)
+path_figs = paths.get_path2figs('corr', CESMversion, mkdir=True)
 
 fpath = paths.get_path2data('lm_1deg', 'anndat')
+fpath = '../data
 fnames = ['b40.lm850-1850.1deg.001.pop.h.{:04d}.ann.4.cdf'.format(i) for i in np.arange(850, 1500)]
 
 # #############################################################################
@@ -46,7 +49,7 @@ ncdat = xr.open_dataset(fpath+fnames[0], decode_times=False)
 TAREA = ncdat.TAREA
 # -----------------------------------------------------------------------------
 #  Load BSF and MOC (try from pickled file, otherwise load from ncdata)
-try: 
+try:
     BSF_mod = utils_misc.loadvar(path_corr+'BSF_mod') 
     MOC_mod = utils_misc.loadvar(path_corr+'MOC_mod') 
 except:
@@ -100,7 +103,7 @@ TAREA = TAREA.where((BSF.TLAT>=45) & (BSF.TLAT<=70))
 # -----------------------------------------------------------------------------
 # calculate Streamfunction indices
 MOCidx = MOC.max(dim = ['moc_z','lat_aux_grid'])                # maximal value
-BSFidx = (BSF*TAREA).mean(dim=['nlat', 'nlon'])/TAREA.mean()    # weighted average
+BSFidx = (BSF*TAREA).mean(dim = ['nlat', 'nlon'])/TAREA.mean()    # weighted average
 # -----------------------------------------------------------------------------
 # calculate correlation btw. MOCidx and BSFidx
 corrIDX = utils_ana.xcorr(MOCidx, BSFidx, 0)

@@ -69,15 +69,14 @@ def calc_MOC_mgrd(transport_type, M, dump_Mxint=False):
 # ---------------------------------------------------------------------------------------
 # - zonal integration of Volume Transport along auxillary grid
 # ---------------------------------------------------------------------------------------
-def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, mask_auxgrd_overlay_lat, iter_maskcombo):
+def calc_Mxint_auxgrd(lat_ax, zd_ax, M, fraction_mask, ATLiter):
     '''
     Input:
      > lat_ax               : meridional axis of auxgrd | nparray
      > zd_ax                : vertical or density axis of auxgrd | nparray
-     > transport_type       : either 'W', 'V', 'dW' or 'dV' | string
      > M                    : volume transport (MW, MV, dMW or dMV) | nparray of shape [nz, nlat, nlon]
-     > mask_auxgrd_overlay_lat  : mask1TODOC
-     > iter_maskcombo           : mask2TODOC
+     > fraction_mask        : mask1TODOC
+     > ATLiter              : mask2TODOC
     Output:
      > Mxint                : zonally integrated volume transport of shape [nz, nlat] | xarray
     Steps:
@@ -95,29 +94,20 @@ def calc_Mxint_auxgrd(lat_ax, zd_ax, transport_type, M, mask_auxgrd_overlay_lat,
     iter_lat_ax = np.arange(len(lat_ax))
     iter_lat_M = np.arange(M.shape[1])
 
-    # zonal integration along aux grid
-      # ... on depth-axis
-    if (transport_type == 'W') or (transport_type == 'V'):
-        print('> zonal integration')
-        Mxint = np.zeros([len(zd_ax), len(lat_ax)])      # pre-allocation with zeros
-        for n in iter_lat_ax:
-          utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax))
-          for j in iter_lat_M:
-            for i in iter_maskcombo[n,j]:                       # limit zonal integration to Atlantic and grid-overlay
-              Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
-        utils_misc.ProgBar('done')
+    print('> zonal integration')
+    Mxint = np.zeros([len(zd_ax), len(lat_ax)])      # pre-allocation with zeros
+    for n in iter_lat_ax[:-1]: #!!
+        utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax))
+        fract_n = fraction_mask[n]
+        try: foo = np.arange(fract_n[:,0].min(), fract_n[:,0].max()+1)
+        except: debug_here()
+        for j in foo: # limit meridional loop to fraction_maskZ
+            fract_nj = fract_n[fract_n[:,0]==j]
+            for i in np.intersect1d(fract_nj[:,1], ATLiter[j]): # limit zonal loop to ATLmask and fraction_mask
+                fract_nji = fract_nj[fract_nj[:,1]==i,2]
+                Mxint[:,n] = np.nansum([Mxint[:,n], M[:,j,i]*fract_nji], axis=0)   # zonal integration
+    utils_misc.ProgBar('done')
 
-      # ... on density-axis
-    elif (transport_type == 'dW') or (transport_type == 'dV'):
-        print('> zonal integration')
-        Mxint = np.zeros([len(zd_ax), len(lat_ax)])      # pre-allocation with zeros (np-array like for speed)
-        for n in iter_lat_ax:
-          utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_ax))
-          for j in iter_lat_M:
-            for i in iter_maskcombo[n,j]:                # limit zonal integration to Atlantic and grid-overlay
-              Mxint[:,n] = np.nansum([Mxint[:,n],M[:,j,i]], axis=0)   # zonal integration
-        utils_misc.ProgBar('done')
-    
     return(Mxint)
 
 # ---------------------------------------------------------------------------------------

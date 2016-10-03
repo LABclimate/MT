@@ -67,6 +67,10 @@ def mask_ATLANTIC(varin, mask, outputformat='xr'):
 def get_ATLbools(mask):
     return(np.array((mask>=6) & (mask!=7)))
 
+def get_ATLiter(mask):
+    return(np.array([np.where(mask[ii,:]) for ii in np.arange(mask.shape[0])]).squeeze())
+
+
 # =======================================================================================
 # generate auxillary grid and related masks and mask-like iterators 
 # =======================================================================================
@@ -96,9 +100,9 @@ def gen_auxgrd(ncdat, name):
     return(lat)
 
 # --------------------------------------------------
-# generate mask_auxgrd_overlay_lat, a mask for grid-overlay
+# generate mask_auxgrd_overlay_lat, the mask for grid-overlay
 # --------------------------------------------------
-def gen_mask_auxgrd_overlay_lat_old(lat_auxgrd, ncdat):
+def gen_mask_auxgrd_overlay_lat(lat_auxgrd, ncdat):
     ''' Boolean of size (nlatAUXgrid, nlatMODELgrid, nlonMODELgrid)
         It is True where latitudes of auxillary and model grid lie in the same box. 
     '''
@@ -116,30 +120,46 @@ def gen_mask_auxgrd_overlay_lat_old(lat_auxgrd, ncdat):
     return(mask_auxgrd_overlay_lat)
 
 # --------------------------------------------------
-# generate mask_auxgrd_overlay_lat, a mask for grid-overlay
+# generate fraction_mask, the mask for grid-overlay
 # --------------------------------------------------
-def gen_mask_auxgrd_overlay_lat(auxLAT, ncdat):
+def gen_fraction_mask(auxLAT, ncdat):
     ''' Boolean of size (nlatAUXgrid, nlatMODELgrid, nlonMODELgrid)
         It is True where latitudes of auxillary and model grid lie in the same box. 
+        
+        Important Note: check all border values! sometimes I cropped the loops 
+                        in order not to get missing values, e.g. as U-grid and 
+                        T-grid have the same shape
     '''
-    print('> generating mask_auxgrd_overlay_lat')
+    #auxLAT = np.arange(-90,90, .1)
     
-    TLAT = np.array(ncdat.TLAT)     # mgrd
-    TLONG = np.array(ncdat.TLONG)   # mgrd
-    ULAT = np.array(ncdat.ULAT)     # mgrd
+    print('> generating mask_auxgrd_overlay_lat')    
+    # -----------------------------------------------------------------
+    # - Pre-allocation of mask
+    fraction_mask = np.zeros([len(auxLAT)], dtype=object) # second dimension is going to be expanded below if needed
+    for ii in np.arange(len(auxLAT)):
+        fraction_mask[ii] = np.nan*np.ones(3) # dummies, which will be deleted afterwards
+    stats = dict()
+    stats['cases'] = np.zeros(10)
+    stats['nLATbtw'] = np.nan * np.ones_like(ncdat.TLAT)
+    stats['area'] = np.zeros([len(ncdat.nlat), len(ncdat.nlon), 3])
+    stats['area'][:,:,0] = ncdat.TAREA
+    # -----------------------------------------------------------------
+    # - LATITUDES and LONGITUES    
+    TLAT = np.array(ncdat.TLAT)                 # mgrd
+    TLONG = np.array(ncdat.TLONG)               # mgrd
+    ULAT = np.array(ncdat.ULAT)                 # mgrd
+    ULONG = np.array(ncdat.ULONG)               # mgrd
     COSULAT = np.cos(np.deg2rad(ULAT))          # cos of ULAT
     SINULAT = np.sin(np.deg2rad(ULAT))          # sin of ULAT
-    ULONG = np.array(ncdat.ULONG)   # mgrd
-    auxLAT = np.arange(-90,90, .1)  #!
     COSauxLAT = np.cos(np.deg2rad(auxLAT))      # cos of auxLAT
     SINauxLAT = np.sin(np.deg2rad(auxLAT))      # sin of auxLAT
-    iter_auxLAT = np.arange(len(auxLAT))
-    iter_lat_mgrdT = np.arange(len(ncdat.nlat))
-    iter_lon_mgrdT = np.array(ncdat.nlon) 			# in normal order!!   
-
+    
+    # -----------------------------------------------------------------
+    # - FUNCTIONS
     def dist_flat(COSLAT, SINULAT, LONG):
         ''' formula found on: https://www.math.ksu.edu/~dbski/writings/haversine.pdf'''
-        R = 6378000 #! R_earth in [m]
+        ''' Radius_Earth is mean of Wikipedia-Values for R_pol and R_eq'''
+        R = np.mean([6356752, 6371008]) # mean Earth radius in [m]
         return(R*np.sqrt(2-2*np.prod(COSLAT)*np.cos(np.deg2rad(np.diff(LONG)))-2*np.prod(SINLAT)))
     
     def area_heron(d):
@@ -148,13 +168,14 @@ def gen_mask_auxgrd_overlay_lat(auxLAT, ncdat):
         return(np.sqrt(s*(s-d[0])*(s-d[1])*(s-d[2])))
         
         
-    def get_ji(idxclose, j, i):
-        out = np.zeros(len(idxclose), dtype=object) # pre-allocation of output
-        for ii in np.arange(len(idxclose)):
-            if idxclose[ii] == 0: out[ii] = tuple([j-1, i-1])
-            if idxclose[ii] == 1: out[ii] = tuple([j-1, i])
-            if idxclose[ii] == 2: out[ii] = tuple([j, i-1])
-            if idxclose[ii] == 3: out[ii] = tuple([j, i])
+    def get_ji(idxji, j, i):
+        out = np.zeros(len(idxji), dtype=object) # pre-allocation of output
+        for ii in np.arange(len(idxji)):
+            if idxji[ii] == 0: out[ii] = tuple([j-1, i-1])
+            if idxji[ii] == 1: out[ii] = tuple([j-1, i])
+            if idxji[ii] == 2: out[ii] = tuple([j, i-1])
+            if idxji[ii] == 3: out[ii] = tuple([j, i])
+          
         return(out)
         
     def argsort_WtoE(idx):
@@ -162,170 +183,240 @@ def gen_mask_auxgrd_overlay_lat(auxLAT, ncdat):
         
     def area_1_triangle(COSLAT, SINLAT, LONG):
         d = np.zeros(3)     # pre-allocation of distances
-        d[0] = dist_flat(COSLAT[[0,1]], SINLAT[[0,1]], LONG[[0,1]]) # in [m]
-        d[1] = dist_flat(COSLAT[[1,2]], SINLAT[[1,2]], LONG[[1,2]]) # in [m]
-        d[2] = dist_flat(COSLAT[[2,0]], SINLAT[[2,0]], LONG[[2,0]]) # in [m]
+        # legs in m
+        d[0] = dist_flat(COSLAT[[0,1]], SINLAT[[0,1]], LONG[[0,1]])
+        d[1] = dist_flat(COSLAT[[1,2]], SINLAT[[1,2]], LONG[[1,2]])
+        d[2] = dist_flat(COSLAT[[2,0]], SINLAT[[2,0]], LONG[[2,0]])
+        # area
         return(area_heron(d))
         
     def area_2_triangles(COSLAT, SINLAT, LONG):
         d = np.zeros(5)     # pre-allocation of distances
-        # first triangle                    
-        d[0] = dist_flat(COSLAT[[0,1]], SINLAT[[0,1]], LONG[[0,1]]) # in [m]
-        d[1] = dist_flat(COSLAT[[1,2]], SINLAT[[1,2]], LONG[[1,2]]) # in [m]
-        d[2] = dist_flat(COSLAT[[2,0]], SINLAT[[2,0]], LONG[[2,0]]) # in [m]        
-        # second triangle
-        d[3] = dist_flat(COSLAT[[2,3]], SINLAT[[2,3]], LONG[[2,3]]) # in [m]
-        d[4] = dist_flat(COSLAT[[0,3]], SINLAT[[0,3]], LONG[[0,3]]) # in [m]
+        # legs in m       
+        d[0] = dist_flat(COSLAT[[0,1]], SINLAT[[0,1]], LONG[[0,1]])
+        d[1] = dist_flat(COSLAT[[1,2]], SINLAT[[1,2]], LONG[[1,2]])
+        d[2] = dist_flat(COSLAT[[2,0]], SINLAT[[2,0]], LONG[[2,0]])        
+        d[3] = dist_flat(COSLAT[[2,3]], SINLAT[[2,3]], LONG[[2,3]])
+        d[4] = dist_flat(COSLAT[[0,3]], SINLAT[[0,3]], LONG[[0,3]])
         # areas
         AREAa = area_heron(d[[0,1,2]])
         AREAb = area_heron(d[[2,3,4]])
         return(AREAa + AREAb)
-    def area_2_triangles(COSLAT, SINLAT, LONG):
+        
+    def area_3_triangles(COSLAT, SINLAT, LONG):
         d = np.zeros(7)     # pre-allocation of distances
-        # first triangle                    
-        d[0] = dist_flat(COSLAT[[0,1]], SINLAT[[0,1]], LONG[[0,1]]) # in [m]
-        d[1] = dist_flat(COSLAT[[1,2]], SINLAT[[1,2]], LONG[[1,2]]) # in [m]
-        d[2] = dist_flat(COSLAT[[2,0]], SINLAT[[2,0]], LONG[[2,0]]) # in [m]        
-        # second triangle
-        d[3] = dist_flat(COSLAT[[2,3]], SINLAT[[2,3]], LONG[[2,3]]) # in [m]
-        d[4] = dist_flat(COSLAT[[0,3]], SINLAT[[0,3]], LONG[[0,3]]) # in [m]
-        # third triangle
-        d[5] = dist_flat(COSLAT[[0,3]], SINLAT[[0,3]], LONG[[0,3]]) # in [m]
-        d[6] = dist_flat(COSLAT[[0,3]], SINLAT[[0,3]], LONG[[0,3]]) # in [m]
+        # legs in m
+        d[0] = dist_flat(COSLAT[[0,1]], SINLAT[[0,1]], LONG[[0,1]])
+        d[1] = dist_flat(COSLAT[[1,2]], SINLAT[[1,2]], LONG[[1,2]])
+        d[2] = dist_flat(COSLAT[[2,0]], SINLAT[[2,0]], LONG[[2,0]])        
+        d[3] = dist_flat(COSLAT[[2,3]], SINLAT[[2,3]], LONG[[2,3]])
+        d[4] = dist_flat(COSLAT[[0,3]], SINLAT[[0,3]], LONG[[0,3]])
+        d[5] = dist_flat(COSLAT[[3,4]], SINLAT[[3,4]], LONG[[3,4]])
+        d[6] = dist_flat(COSLAT[[0,4]], SINLAT[[0,4]], LONG[[0,4]])
         # areas
         AREAa = area_heron(d[[0,1,2]])
         AREAb = area_heron(d[[2,3,4]])
-        return(AREAa + AREAb)
+        AREAc = area_heron(d[[4,5,6]])
+        return(AREAa + AREAb + AREAc)
         
-        
-    for j in iter_lat_mgrdT[1:]:
-        for i in iter_lon_mgrdT[1:]:auxLAT<MAXLAT and auxLAT>MINLAT
-            closeULAT = ULAT[j-1:j+1, i-1:i+1].flatten()
-            closeULONG = ULONG[j-1:j+1, i-1:i+1].flatten()
-            MAXLAT = np.max(closeULAT)
-            MINLAT = np.min(closeULAT)
-            idxLATbtw = np.where((auxLAT<MAXLAT) & (auxLAT>MINLAT))[-1]
+    # -----------------------------------------------------------------
+    # - LOOP over mgrd        
+    for j in np.arange(1,len(ncdat.nlat)):
+        utils_misc.ProgBar('step', step=j, nsteps=len(ncdat.nlat), minbarlen=60, forceinit = True)
+        for i in np.arange(1,len(ncdat.nlon)):
+            ULATji = ULAT[j-1:j+1, i-1:i+1].flatten()   # flat and thus allocatable with [0,1,2,3]
+            ULONGji = ULONG[j-1:j+1, i-1:i+1].flatten() # flat and thus allocatable with [0,1,2,3]
+            MAXLAT = np.max(ULATji)
+            MINLAT = np.min(ULATji)
+            idxLATbtw = np.where((auxLAT<MAXLAT) & (auxLAT>MINLAT))[-1] # indices of auxLAT between min, max corner of ULATji
             LATbtw = auxLAT[idxLATbtw]
-            try: LATbtwplusone = auxLAT[idxLATbtw+1]
-            except: LATbtwplusone = np.hstack(auxLAT[idxLATbtw], 100) # buffer value for overshoot at upper border of lat_auxgrd
             nLATbtw = len(idxLATbtw)
-            AREA = np.zeros(nLATbtw+1) # pre-allocation of AREAfractions
+            try: LATbtwplusone = auxLAT[idxLATbtw+1]
+            except: LATbtwplusone = np.hstack((auxLAT[idxLATbtw], 100)) #! buffer value for overshoot at upper border of lat_auxgrd
+            AREA = np.zeros(nLATbtw+1) # pre-allocation of AREA
             
-            ## --- only in one LATbin ---
+            stats['nLATbtw'][j,i] = nLATbtw
+
+            ## --- only in one LATbin -----------------------------------------
             if nLATbtw == 0:
-                LATbin = np.where(auxLAT<MINLAT)[-1][-1]
-                frac[j,i,LATbin] = 1
+                stats['cases'][0] += 1
+                idx = np.where(auxLAT<MINLAT)[-1][-1]
+                fraction_mask[idx] = np.vstack((fraction_mask[idx], np.array([j,i,1])))
+                # -----------------------------------------------------------------
+                # - calculation of areas for check
+                COSLAT, SINLAT, LONG, = np.zeros(4), np.zeros(4), np.zeros(4)   # pre-allocation for points
+                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[j-1,i-1], SINULAT[j-1,i-1], ULONG[j-1,i-1] # SW corner
+                COSLAT[1], SINLAT[1], LONG[1] = COSULAT[j-1,i], SINULAT[j-1,i], ULONG[j-1,i] # SE corner
+                COSLAT[2], SINLAT[2], LONG[2] = COSULAT[j,i], SINULAT[j,i], ULONG[j,i] # NE corner
+                COSLAT[3], SINLAT[3], LONG[3] = COSULAT[j,i-1], SINULAT[j,i-1], ULONG[j,i-1] # NW corner
+                A = area_2_triangles(COSLAT, SINLAT, LONG)
+                # - Comparison with TAREA from ncdat
+                stats['area'][j,i,1] = A
+                stats['area'][j,i,2] = np.diff([A, ncdat.TAREA[j,i]]) 
+                
                 continue
+
             
-            ## --- multiple LATbins ---
+            ## --- multiple LATbins -------------------------------------------
+            # -----------------------------------------------------------------
+            # - LONGITUDES of intersects  #!THCHK
+            LONGbtwW, LONGbtwE = np.zeros(nLATbtw), np.zeros(nLATbtw)
+            # lowest values
+            nLATfloor = np.sum(ULATji<LATbtw[0]) # number of corners below lowest LATbtw
+            if nLATfloor == 1 and ULATji[0]<LATbtw[0]: # W corner is lowest
+                LONGbtwW[0] = ULONGji[0] + np.diff(ULONGji[[0,2]])/np.diff(ULATji[[0,2]]) * (LATbtw[0]-ULATji[0])
+                LONGbtwE[0] = ULONGji[0] + np.diff(ULONGji[[0,1]])/np.diff(ULATji[[0,1]]) * (LATbtw[0]-ULATji[0])
+            elif nLATfloor == 1 and ULATji[1]<LATbtw[0]: # E corner is lowest
+                LONGbtwW[0] = ULONGji[1] + np.diff(ULONGji[[1,0]])/np.diff(ULATji[[1,0]]) * (LATbtw[0]-ULATji[1])
+                LONGbtwE[0] = ULONGji[1] + np.diff(ULONGji[[1,3]])/np.diff(ULATji[[1,3]]) * (LATbtw[0]-ULATji[1])
+            elif nLATfloor == 2:
+                LONGbtwW[0] = ULONGji[0] + np.diff(ULONGji[[0,2]])/np.diff(ULATji[[0,2]]) * (LATbtw[0]-ULATji[0])
+                LONGbtwE[0] = ULONGji[1] + np.diff(ULONGji[[1,3]])/np.diff(ULATji[[1,3]]) * (LATbtw[0]-ULATji[1])
+            # highest values
+            nLATtop = np.sum(ULATji>LATbtw[-1]) # number of corners above highest LATbtw
+            if nLATtop == 1 and ULATji[2]>LATbtw[-1]: # W corner is highest
+                LONGbtwW[-1] = ULONGji[2] + np.diff(ULONGji[[2,0]])/np.diff(ULATji[[2,0]]) * (LATbtw[-1]-ULATji[2])
+                LONGbtwE[-1] = ULONGji[2] + np.diff(ULONGji[[2,3]])/np.diff(ULATji[[2,3]]) * (LATbtw[-1]-ULATji[2])
+            elif nLATtop == 1 and ULATji[3]>LATbtw[-1]: # E corner is highest
+                LONGbtwW[-1] = ULONGji[3] + np.diff(ULONGji[[3,2]])/np.diff(ULATji[[3,2]]) * (LATbtw[-1]-ULATji[3])
+                LONGbtwE[-1] = ULONGji[3] + np.diff(ULONGji[[3,1]])/np.diff(ULATji[[3,1]]) * (LATbtw[-1]-ULATji[3])
+            elif nLATtop == 2:
+                LONGbtwW[-1] = ULONGji[2] + np.diff(ULONGji[[2,0]])/np.diff(ULATji[[2,0]]) * (LATbtw[-1]-ULATji[2])
+                LONGbtwE[-1] = ULONGji[3] + np.diff(ULONGji[[3,1]])/np.diff(ULATji[[3,1]]) * (LATbtw[-1]-ULATji[3])
+            # eventual middle values
+            if nLATbtw >=3:
+                LONGbtwW[1:-1] = ULONGji[0] + np.diff(ULONGji[[0,2]])/np.diff(ULATji[[0,2]]) * (LATbtw[1:-1]-ULATji[0])
+                LONGbtwE[1:-1] = ULONGji[1] + np.diff(ULONGji[[1,3]])/np.diff(ULATji[[1,3]]) * (LATbtw[1:-1]-ULATji[1])           
             
-            # longitueds of intersects
-            nLATfloor = np.sum(closeULAT<LATbtw[0])
-            nLATtop = np.sum(closeULAT>LATbtw[-1])
-            
-            LONGbtwW = closeULONG[0] + np.diff(closeULONG[[0,2]])/np.diff(closeULAT[[0,2]]) * (LATbtw-closeULAT[0])
-            LONGbtwE = closeULONG[1] + np.diff(closeULONG[[1,3]])/np.diff(closeULAT[[1,3]]) * (LATbtw-closeULAT[1])
-            
-            # lower part
-            idxLATbelow = get_ji(np.where(closeULAT<LATbtw[0])[-1], j, i)
+            # -----------------------------------------------------------------
+            # - AREA calculation...
+            # ... of lower part
+            idxLATbelow = get_ji(np.where(ULATji<LATbtw[0])[-1], j, i)
             nbelow = len(idxLATbelow)
             if nbelow == 0:
                 print('nbelow = 0!! What next?')
                 raise ValueError('Error')
-            elif nbelow == 1:
+            elif nbelow == 1: # Case 7
+                stats['cases'][7] += 1
                 COSLAT, SINLAT, LONG= np.zeros(3), np.zeros(3), np.zeros(3)     # pre-allocation for points
-                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATbelow[0]], SINULAT[idxLATbelow[0]], ULONG[idxLATbelow[0]] # Lower corner
-                COSLAT[1], SINLAT[1], LONG[1] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # West intersect
-                COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # East intersect
+                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATbelow[0]], SINULAT[idxLATbelow[0]], ULONG[idxLATbelow[0]] # corner
+                COSLAT[1], SINLAT[1], LONG[1] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # E intersect
+                COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # W intersect
                 AREA[0] = area_1_triangle(COSLAT, SINLAT, LONG)
-            elif nbelow == 2:
+            elif nbelow == 2: # Case 8
+                stats['cases'][8] += 1
                 COSLAT, SINLAT, LONG, = np.zeros(4), np.zeros(4), np.zeros(4)   # pre-allocation for points
-                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATbelow[0]], SINULAT[idxLATbelow[0]], ULONG[idxLATbelow[0]] # Lower corner West
-                COSLAT[1], SINLAT[1], LONG[1] = COSULAT[idxLATbelow[1]], SINULAT[idxLATbelow[1]], ULONG[idxLATbelow[1]] # Lower corner East
-                COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # West intersect
-                COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # East intersect
+                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATbelow[0]], SINULAT[idxLATbelow[0]], ULONG[idxLATbelow[0]] # W corner
+                COSLAT[1], SINLAT[1], LONG[1] = COSULAT[idxLATbelow[1]], SINULAT[idxLATbelow[1]], ULONG[idxLATbelow[1]] # E corner
+                COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # E intersect
+                COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # W intersect
                 AREA[0] = area_2_triangles(COSLAT, SINLAT, LONG)
-            elif nbelow == 3:
+            elif nbelow == 3: # Case 9
+                stats['cases'][9] += 1
                 COSLAT, SINLAT, LONG, = np.zeros(5), np.zeros(5), np.zeros(5)   # pre-allocation for points
-                idx = argsort_WtoE(idxLATabove) # indices of indices of Lower corners, sorted from W to E
-                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATabove[idx[0]]], SINULAT[idxLATabove[idx[0]]], ULONG[idxLATabove[idx[0]]] # Lower corner West
-                COSLAT[1], SINLAT[1], LONG[1] = COSULAT[idxLATabove[idx[1]]], SINULAT[idxLATabove[idx[1]]], ULONG[idxLATabove[idx[1]]] # Lower corner centre
-                COSLAT[2], SINLAT[2], LONG[2] = COSULAT[idxLATabove[idx[2]]], SINULAT[idxLATabove[idx[[2]]], ULONG[idxLATabove[idx[[2]]] # Lower corner East
-                COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # West intersect
-                COSLAT[4], SINLAT[4], LONG[4] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # East intersect
-                AREA[nLATbtw+1] = area_3_triangles(COSLAT, SINLAT, LONG)
+                idx = argsort_WtoE(idxLATbelow) # indices of indices of Lower corners, sorted from W to E
+                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATbelow[idx[0]]], SINULAT[idxLATbelow[idx[0]]], ULONG[idxLATbelow[idx[0]]] # W corner
+                COSLAT[1], SINLAT[1], LONG[1] = COSULAT[idxLATbelow[idx[1]]], SINULAT[idxLATbelow[idx[1]]], ULONG[idxLATbelow[idx[1]]] # C corner
+                COSLAT[2], SINLAT[2], LONG[2] = COSULAT[idxLATbelow[idx[2]]], SINULAT[idxLATbelow[idx[2]]], ULONG[idxLATbelow[idx[2]]] # E corner
+                COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # E intersect
+                COSLAT[4], SINLAT[4], LONG[4] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # W intersect
+                AREA[0] = area_3_triangles(COSLAT, SINLAT, LONG)
    
-            # centre part(s)      
+            # ... of eventual centre part(s)      
             if nLATbtw>=2:
-                for bb in np.arange(nLATbtw[:-1]): #!
-                    idxLATabove = get_ji(np.where((closeULAT>LATbtw[bb]) & (closeULAT<LATbtwplusone[bb]))[-1], j, i)
+                for bb in np.arange(1,nLATbtw):
+                    idxLATabove = get_ji(np.where((ULATji>LATbtw[bb-1]) & (ULATji<=LATbtwplusone[bb-1]))[-1], j, i)
                     nabove = len(idxLATabove)
-                    if nabove == 0:
+                    if nabove == 0: # Case 4
+                        stats['cases'][4] += 1
                         COSLAT, SINLAT, LONG, = np.zeros(4), np.zeros(4), np.zeros(4)   # pre-allocation for points
-                        COSLAT[0], SINLAT[0], LONG[0] = COSauxLAT[idxLATbtw[bb+1]], SINauxLAT[idxLATbtw[bb+1]], LONGbtwW[bb+1]  # NW intersect
-                        COSLAT[1], SINLAT[1], LONG[1] = COSauxLAT[idxLATbtw[bb+1]], SINauxLAT[idxLATbtw[bb+1]], LONGbtwE[bb+1]  # NE intersect
-                        COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[bb]], SINauxLAT[idxLATbtw[bb]], LONGbtwW[bb]        # SW intersect
-                        COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[bb], SINauxLAT[idxLATbtw[bb]], LONGbtwE[bb]         # SE intersect
-                        AREA[bb+1] = area_2_triangles(COSLAT, SINLAT, LONG)
-                    elif nabove == 1:
+                        COSLAT[0], SINLAT[0], LONG[0] = COSauxLAT[idxLATbtw[bb]], SINauxLAT[idxLATbtw[bb]], LONGbtwW[bb]  # NW intersect
+                        COSLAT[1], SINLAT[1], LONG[1] = COSauxLAT[idxLATbtw[bb]], SINauxLAT[idxLATbtw[bb]], LONGbtwE[bb]  # NE intersect
+                        COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[bb-1]], SINauxLAT[idxLATbtw[bb-1]], LONGbtwW[bb-1]        # SW intersect
+                        COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[bb-1]], SINauxLAT[idxLATbtw[bb-1]], LONGbtwE[bb-1]         # SE intersect
+                        AREA[bb] = area_2_triangles(COSLAT, SINLAT, LONG)
+                    elif nabove == 1 and ULONG[idxLATabove[0]]<LONGbtwW[bb-1]: # Case 5a
+                        stats['cases'][5] += 1
                         COSLAT, SINLAT, LONG, = np.zeros(5), np.zeros(5), np.zeros(5)   # pre-allocation for points
-                        COSLAT[0], SINLAT[0], LONG[0] = COSauxLAT[idxLATbtw[bb+1]], SINauxLAT[idxLATbtw[bb+1]], LONGbtwW[bb+1]  # NW intersect
-                        COSLAT[1], SINLAT[1], LONG[1] = COSauxLAT[idxLATbtw[bb+1]], SINauxLAT[idxLATbtw[bb+1]], LONGbtwE[bb+1]  # NE intersect
-                        COSLAT[2], SINLAT[2], LONG[2] = COSULAT[idxLATabove[0]], SINULAT[idxLATabove[0]], ULONG[idxLATabove[0]] # Top corner West
-                        COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[bb]], SINauxLAT[idxLATbtw[bb]], LONGbtwW[bb]        # SW intersect
-                        COSLAT[4], SINLAT[4], LONG[4] = COSauxLAT[idxLATbtw[bb], SINauxLAT[idxLATbtw[bb]], LONGbtwE[bb]         # SE intersect
-                        AREA[bb+1] = area_3_triangles(COSLAT, SINLAT, LONG)
-                    elif nabove == 2:
-                        
-            # upper part
-            idxLATabove = get_ji(np.where((closeULAT>LATbtw[-1]) & (closeULAT<LATbtwplusone[-1]))[-1], j, i)
+                        COSLAT[0], SINLAT[0], LONG[0] = COSauxLAT[idxLATbtw[bb]], SINauxLAT[idxLATbtw[bb]], LONGbtwE[bb]  # NE intersect
+                        COSLAT[1], SINLAT[1], LONG[1] = COSauxLAT[idxLATbtw[bb]], SINauxLAT[idxLATbtw[bb]], LONGbtwW[bb]  # NW intersect
+                        COSLAT[2], SINLAT[2], LONG[2] = COSULAT[idxLATabove[0]], SINULAT[idxLATabove[0]], ULONG[idxLATabove[0]] # corner
+                        COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[bb-1]], SINauxLAT[idxLATbtw[bb-1]], LONGbtwW[bb-1]        # SW intersect
+                        COSLAT[4], SINLAT[4], LONG[4] = COSauxLAT[idxLATbtw[bb-1]], SINauxLAT[idxLATbtw[bb-1]], LONGbtwE[bb-1]         # SE intersect
+                        AREA[bb] = area_3_triangles(COSLAT, SINLAT, LONG)
+                    elif nabove == 1 and ULONG[idxLATabove[0]]>LONGbtwE[bb-1]: # Case 5b
+                        stats['cases'][5] += 1
+                        COSLAT, SINLAT, LONG, = np.zeros(5), np.zeros(5), np.zeros(5)   # pre-allocation for points
+                        COSLAT[0], SINLAT[0], LONG[0] = COSauxLAT[idxLATbtw[bb]], SINauxLAT[idxLATbtw[bb]], LONGbtwE[bb]  # NE intersect
+                        COSLAT[1], SINLAT[1], LONG[1] = COSauxLAT[idxLATbtw[bb]], SINauxLAT[idxLATbtw[bb]], LONGbtwW[bb]  # NW intersect
+                        COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[bb-1]], SINauxLAT[idxLATbtw[bb-1]], LONGbtwW[bb-1]        # SW intersect
+                        COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[bb-1]], SINauxLAT[idxLATbtw[bb-1]], LONGbtwE[bb-1]         # SE intersect
+                        COSLAT[4], SINLAT[4], LONG[4] = COSULAT[idxLATabove[0]], SINULAT[idxLATabove[0]], ULONG[idxLATabove[0]] # corner
+                        AREA[bb] = area_3_triangles(COSLAT, SINLAT, LONG)                        
+                    elif nabove == 2: # Case 6
+                        stats['cases'][6] += 1
+                        idx = argsort_WtoE(idxLATabove) # indices of indices of Upper corners, sorted from W to E
+                        COSLAT, SINLAT, LONG, = np.zeros(6), np.zeros(6), np.zeros(6)   # pre-allocation for points
+                        COSLAT[0], SINLAT[0], LONG[0] = COSauxLAT[idxLATbtw[bb]], SINauxLAT[idxLATbtw[bb]], LONGbtwE[bb]  # NE intersect
+                        COSLAT[1], SINLAT[1], LONG[1] = COSauxLAT[idxLATbtw[bb]], SINauxLAT[idxLATbtw[bb]], LONGbtwW[bb]  # NW intersect
+                        COSLAT[2], SINLAT[2], LONG[2] = COSULAT[idxLATabove[idx[0]]], SINULAT[idxLATabove[idx[0]]], ULONG[idxLATabove[idx[0]]] # W corner
+                        COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[bb-1]], SINauxLAT[idxLATbtw[bb-1]], LONGbtwW[bb-1]        # SW intersect
+                        COSLAT[4], SINLAT[4], LONG[4] = COSauxLAT[idxLATbtw[bb-1]]  , SINauxLAT[idxLATbtw[bb-1]], LONGbtwE[bb-1]         # SE intersect
+                        COSLAT[5], SINLAT[5], LONG[5] = COSULAT[idxLATabove[idx[1]]], SINULAT[idxLATabove[idx[1]]], ULONG[idxLATabove[idx[1]]] # E corner
+                        AREA[bb] = area_3_triangles(COSLAT, SINLAT, LONG)
+
+            # ... of upper part
+            idxLATabove = get_ji(np.where(ULATji>LATbtw[-1])[-1], j, i)
             nabove = len(idxLATabove)
             if nabove == 0:
                 print('nbelow = 0!! What next?')
                 raise ValueError('Error')
-            elif nabove == 1:
+            elif nabove == 1: # Case 1
+                stats['cases'][1] += 1                
                 COSLAT, SINLAT, LONG= np.zeros(3), np.zeros(3), np.zeros(3)     # pre-allocation for points
-                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATabove[0]], SINULAT[idxLATabove[0]], ULONG[idxLATabove[0]] # Upper corner
-                COSLAT[1], SINLAT[1], LONG[1] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # West intersect
-                COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # East intersect
-                AREA[nLATbtw+1] = area_1_triangle(COSLAT, SINLAT, LONG)
-            elif nabove == 2:
+                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATabove[0]], SINULAT[idxLATabove[0]], ULONG[idxLATabove[0]] # corner
+                COSLAT[1], SINLAT[1], LONG[1] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # W intersect
+                COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # E intersect
+                AREA[-1] = area_1_triangle(COSLAT, SINLAT, LONG)
+            elif nabove == 2: # Case 2
+                stats['cases'][2] += 1    
                 COSLAT, SINLAT, LONG, = np.zeros(4), np.zeros(4), np.zeros(4)   # pre-allocation for points
-                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATabove[0]], SINULAT[idxLATabove[0]], ULONG[idxLATabove[0]] # Upper corner West
-                COSLAT[1], SINLAT[1], LONG[1] = COSULAT[idxLATabove[1]], SINULAT[idxLATabove[1]], ULONG[idxLATabove[1]] # Upper corner East
-                COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # West intersect
-                COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # East intersect
-                AREA[nLATbtw+1] = area_2_triangles(COSLAT, SINLAT, LONG)
-            elif nabove == 3:
+                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATabove[1]], SINULAT[idxLATabove[1]], ULONG[idxLATabove[1]] # E corner
+                COSLAT[1], SINLAT[1], LONG[1] = COSULAT[idxLATabove[0]], SINULAT[idxLATabove[0]], ULONG[idxLATabove[0]] # W corner
+                COSLAT[2], SINLAT[2], LONG[2] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # W intersect
+                COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # E intersect
+                AREA[-1] = area_2_triangles(COSLAT, SINLAT, LONG)
+            elif nabove == 3: # Case 3
+                stats['cases'][3] += 1       
                 COSLAT, SINLAT, LONG, = np.zeros(5), np.zeros(5), np.zeros(5)   # pre-allocation for points
                 idx = argsort_WtoE(idxLATabove) # indices of indices of Upper corners, sorted from W to E
-                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATabove[idx[0]]], SINULAT[idxLATabove[idx[0]]], ULONG[idxLATabove[idx[0]]] # Upper corner West
+                COSLAT[0], SINLAT[0], LONG[0] = COSULAT[idxLATabove[idx[2]]], SINULAT[idxLATabove[idx[2]]], ULONG[idxLATabove[idx[2]]] # Upper corner West
                 COSLAT[1], SINLAT[1], LONG[1] = COSULAT[idxLATabove[idx[1]]], SINULAT[idxLATabove[idx[1]]], ULONG[idxLATabove[idx[1]]] # Upper corner centre
-                COSLAT[2], SINLAT[2], LONG[2] = COSULAT[idxLATabove[idx[2]]], SINULAT[idxLATabove[idx[2]]], ULONG[idxLATabove[idx[2]]] # Upper corner East
+                COSLAT[2], SINLAT[2], LONG[2] = COSULAT[idxLATabove[idx[0]]], SINULAT[idxLATabove[idx[0]]], ULONG[idxLATabove[idx[0]]] # Upper corner East
                 COSLAT[3], SINLAT[3], LONG[3] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwW[0]           # West intersect
                 COSLAT[4], SINLAT[4], LONG[4] = COSauxLAT[idxLATbtw[0]], SINauxLAT[idxLATbtw[0]], LONGbtwE[0]           # East intersect
-                AREA[nLATbtw+1] = area_3_triangles(COSLAT, SINLAT, LONG)
-
-            LATbins = np.hstack([LATbtw[0]-1, LATbtw])
-            idxMAXLAT = np.argwhere(closeULAT == MAXLAT)
-            idxMINLAT = np.argwhere(closeULAT == MINLAT)
-            if len(idxMAXLAT.flatten()) == 4: idxMAXLAT = idxMAXLAT[0] # at low latitudes latvalues at different i are the same
-            if len(idxMINLAT.flatten()) == 4: idxMINLAT = idxMINLAT[0] # at low latitudes latvalues at different i are the same
-            P1 = np.array([MAXLAT, closeULONG[tuple(idxMAXLAT)]])
-            P2 = 
-            while True:
-                MAX                
-                    
-    mask_auxgrd_overlay_lat = np.zeros([len(auxLAT), len(ncdat.nlat), len(ncdat.nlon)],dtype=bool) 	# pre-allocation as False
-    for n in iter_auxLAT[:-1]:
-      utils_misc.ProgBar('step', step=n, nsteps=len(iter_auxLAT), minbarlen=60)
-      for j in iter_lat_mgrdT:
-        for i in iter_lon_mgrdT:
-          if auxLAT[n] <= TLAT[j,i] < auxLAT[n+1]:
-            mask_auxgrd_overlay_lat[n,j,i] = True
-    utils_misc.ProgBar('done')
-
-    return(mask_auxgrd_overlay_lat)
+                AREA[-1] = area_3_triangles(COSLAT, SINLAT, LONG)
+            
+            # -----------------------------------------------------------------
+            # - Fraction of areas
+            fracAREA = AREA/np.sum(AREA)
+            # - Comparison with TAREA from ncdat
+            stats['area'][j,i,1] = np.sum(AREA)
+            stats['area'][j,i,2] = np.diff([np.sum(AREA), ncdat.TAREA[j,i]])            
+            # -----------------------------------------------------------------
+            # - Write to fraction_mask
+            for ii in np.arange(nLATbtw+1):
+                if ii == 0: idx = idxLATbtw[0]-1
+                else:       idx = idxLATbtw[ii-1]
+                try: fraction_mask[idx] = np.vstack((fraction_mask[idx], np.array([j,i,fracAREA[ii]])))
+                except: debug_here()
+    
+    # ---------------------------------------------------------------------             
+    # delete dummy arrays
+    for ii in np.arange(len(auxLAT)):
+        fraction_mask[ii] = np.delete(fraction_mask[ii], 0,0)
+    print('statistics cases: \n{} '.format(stats['cases']))
+    return(fraction_mask, stats)
 
 # --------------------------------------------------
 # generate iter_maskcombo

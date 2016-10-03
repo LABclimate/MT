@@ -78,6 +78,7 @@ path_HT_mgrd_xmax   = dir_mgrd+'HT_mgrd_xmax'
 path_HU_auxgrd_xmax = dir_auxgrd+'HU_auxgrd_xmax'
 path_HU_mgrd_xmax   = dir_mgrd+'HU_mgrd_xmax'
 path_lat_auxgrd     = '../variables/CESM_gen/lat_auxgrd_'+auxgrd_name
+path_fraction_mask = dir_auxgrd+'fraction_mask'
 path_mask_auxgrd_grd_overlay_lat = dir_auxgrd+'mask_auxgrd_overlay_lat'
 path_mask_auxgrd_iter_maskcombo = dir_auxgrd+'iter_maskcombo'
 # =======================================================================================
@@ -86,14 +87,17 @@ path_mask_auxgrd_iter_maskcombo = dir_auxgrd+'iter_maskcombo'
 # ---------------------------------------------------------------------------------------
 # - Mask for Atlantic
 ATLboolmask = utils_mask.get_ATLbools(ncdat.REGION_MASK.values) # boolean mask
+ATLiter = utils_mask.get_ATLiter(ATLboolmask)
+
 # ---------------------------------------------------------------------------------------
 # - Spatial auxiliary grid
-lat_auxgrd = LGS(lambda: utils_mask.gen_auxgrd(ncdat4, auxgrd_name), path_lat_auxgrd, 'lat_auxgrd', noload=False)
+lat_auxgrd = LGS(lambda: utils_mask.gen_auxgrd(ncdat4, auxgrd_name), path_lat_auxgrd, 'lat_auxgrd', noload=True)
 lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very inappropriate
-masks_auxgrd = dict()
-masks_auxgrd['overlay_lat'] = LGS(lambda: utils_mask.gen_mask_auxgrd_overlay_lat(lat_auxgrd, ncdat), path_mask_auxgrd_grd_overlay_lat, 'mask_auxgrd_overlay_lat', noload=False)
-masks_auxgrd['iter_maskcombo'] = LGS(lambda: utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, masks_auxgrd['overlay_lat']), path_mask_auxgrd_iter_maskcombo, 'iter_maskcombo', noload=False)
-
+#masks_auxgrd = dict()
+#masks_auxgrd['overlay_lat'] = LGS(lambda: utils_mask.gen_mask_auxgrd_overlay_lat(lat_auxgrd, ncdat), path_mask_auxgrd_grd_overlay_lat, 'mask_auxgrd_overlay_lat', noload=False)
+fraction_mask = LGS(lambda: utils_mask.gen_fraction_mask(lat_auxgrd, ncdat), path_fraction_mask, 'fraction_mask', noload=True)
+fraction_mask, diffAREA = utils_mask.gen_fraction_mask(lat_auxgrd, ncdat)
+#masks_auxgrd['iter_maskcombo'] = LGS(lambda: utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, masks_auxgrd['overlay_lat']), path_mask_auxgrd_iter_maskcombo, 'iter_maskcombo', noload=False)
 # ---------------------------------------------------------------------------------------
 # - Density grid/bins
 #! note that for volume representation T-grid dbc is needed!!!!
@@ -178,7 +182,7 @@ MV      = utils_transp.calc_MV(ncdat).values        # = V * DX *DZ
 MVf     = utils_transp.calc_MVflat(ncdat).values    # = V * DX
 # - mutations
 MV = np.ones_like(MV)                                                  # mutation
-MVf = np.ones_like(MV)                                                 # mutation
+MVf = np.ones_like(MV)                                                # mutation
 MV[:,190:300,-65:-45] = np.nan*np.ones_like(MV[:,190:300,-65:-45])      # mask
 MVf[:,190:300,-65:-45] = np.nan*np.ones_like(MVf[:,190:300,-65:-45])    # mask
 
@@ -204,7 +208,7 @@ BSF_mgrd, MVzint = utils_BSF.calc_BSF_mgrd(MV, dump_MVzint=True)
 MVp         = utils_conv.project_on_auxgrd(MV, ncdat.ANGLE.values)
 #   (2) zonal integration
 MVxint_mgrd     = np.nansum(MV, axis=2)
-MVxint_auxgrd   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, ncdat.z_t.values, 'V', MVp, masks_auxgrd['overlay_lat'], masks_auxgrd['iter_maskcombo'])
+MVxint_auxgrd   = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, ncdat.z_t.values, MVp, fraction_mask, ATLiter)
 #   (3) vertical integration
 MOC_mgrd_V      = utils_ana.nancumsum(MVxint_mgrd, axis=0)
 MOC_auxgrd_V    = utils_ana.nancumsum(MVxint_auxgrd, axis=0)
@@ -223,7 +227,7 @@ dMVc        = utils_conv.resample_colwise(MVc, ncdat.z_t.values, zdbc, method='d
 dMVcp       = utils_conv.project_on_auxgrd(dMVc, ncdat.ANGLE.values)
 #   (4) zonal integration
 dMOC_mgrd_V_0   = np.nansum(dMVc, axis=2)
-dMOC_auxgrd_V_0 = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, dbc, 'dV', dMVcp, masks_auxgrd['overlay_lat'], masks_auxgrd['iter_maskcombo'])
+dMOC_auxgrd_V_0 = utils_MOC.calc_Mxint_auxgrd(lat_auxgrd, dbc, dMVcp, fraction_mask, ATLiter)
 
 
 # (M1)

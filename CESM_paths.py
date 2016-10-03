@@ -40,7 +40,7 @@ def get_path2data(runname, key):
       nobckp     = ctr_2deg_root + '/no_backup/',                                    #?? what's in here? original runs already sep. for vars?
       nobckphist = ctr_2deg_root + '/no_backup/hist',                                #?? what's in here? orig. run not even sep. for vars?
       anndat0    = ctr_2deg_root + '/restart_yr999/')                                #?? restart important?
-     
+    
     if runname == 'lm_1deg':
         try:    return(path_lm_1deg[key])
         except: sys.exit('Invalid key: ' + key + 'Valid keys are: ' + str(path_lm_1deg.keys))
