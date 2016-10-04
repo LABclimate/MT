@@ -45,12 +45,16 @@ for ii in np.arange(850,1500):
     #  - Paths
     path_sig2       = dir_dens+'sig2_'+fnames[ii][:-4]
     path_densU      = dir_dens+'densU_'+fnames[ii][:-4]
-    path_zdbc       = dir_dens+'/{}/'.format(str_db)+'zdbc_'+fnames[ii][:-4]
-    path_zdbb       = dir_dens+'/{}/'.format(str_db)+'zdbb_'+fnames[ii][:-4]
-    path_zdbbc      = dir_dens+'/{}/'.format(str_db)+'zdbbc_'+fnames[ii][:-4]
+    path_zdbc       = dir_dens+'{}_'.format(str_db)+'zdbc_'+fnames[ii][:-4]
+    path_zdbb       = dir_dens+'{}_'.format(str_db)+'zdbb_'+fnames[ii][:-4]
+    path_zdbbc      = dir_dens+'{}_'.format(str_db)+'zdbbc_'+fnames[ii][:-4]
     
     #  - Load data
     ncdat = xr.open_dataset(fpath+fnames[0], decode_times=False)
+
+    # - Mask for Atlantic
+    ATLboolmask = utils_mask.get_ATLbools(ncdat.REGION_MASK.values) # boolean mask
+    ATLiter = utils_mask.get_ATLiter(ATLboolmask)
 
     #  - Density Conversion
     SA = ncdat.SALT[0,:,:,:].values             # absolute salinity
