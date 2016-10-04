@@ -100,7 +100,7 @@ def get_path2vars(vartype, CESMversion, mkdir=False):
     
 # ---------------------------------------------------------------------------------------
 # Directories for Variables to be stored
-def get_path2figs(vartype):
+def get_path2figs(vartype, mkdir=False):
     
     figs_root = '../figures/'
 

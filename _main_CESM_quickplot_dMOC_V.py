@@ -23,8 +23,9 @@ levels_cont = np.linspace(-80, 80, 9)
 print('levels: ' +str(levels_cont))
 
  #mutation = 'deepest10nan'MVxint_mgrd     = np.nansum(MV, axis=2)
-
+'''
 mutation = 'noGulfMex3'
+'''
 # Choice of data/method
 method = 'B'
 dMOCm = dMOC_mgrd_V_B

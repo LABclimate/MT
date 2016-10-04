@@ -81,6 +81,7 @@ path_lat_auxgrd     = '../variables/CESM_gen/lat_auxgrd_'+auxgrd_name
 path_fraction_mask = dir_auxgrd+'fraction_mask'
 path_mask_auxgrd_grd_overlay_lat = dir_auxgrd+'mask_auxgrd_overlay_lat'
 path_mask_auxgrd_iter_maskcombo = dir_auxgrd+'iter_maskcombo'
+
 # =======================================================================================
 #  Transformation on different grids (Density, Spatial auxiliary grid)
 # =======================================================================================
@@ -91,6 +92,7 @@ ATLiter = utils_mask.get_ATLiter(ATLboolmask)
 
 # ---------------------------------------------------------------------------------------
 # - Spatial auxiliary grid
+'''
 lat_auxgrd = LGS(lambda: utils_mask.gen_auxgrd(ncdat4, auxgrd_name), path_lat_auxgrd, 'lat_auxgrd', noload=True)
 lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very inappropriate
 #masks_auxgrd = dict()
@@ -98,6 +100,8 @@ lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very ina
 fraction_mask = LGS(lambda: utils_mask.gen_fraction_mask(lat_auxgrd, ncdat), path_fraction_mask, 'fraction_mask', noload=True)
 fraction_mask, diffAREA = utils_mask.gen_fraction_mask(lat_auxgrd, ncdat)
 #masks_auxgrd['iter_maskcombo'] = LGS(lambda: utils_mask.gen_iter_maskcombo(lat_auxgrd, ncdat, masks_auxgrd['overlay_lat']), path_mask_auxgrd_iter_maskcombo, 'iter_maskcombo', noload=False)
+'''
+
 # ---------------------------------------------------------------------------------------
 # - Density grid/bins
 #! note that for volume representation T-grid dbc is needed!!!!
@@ -200,7 +204,9 @@ MVf[:,190:300,-65:-45] = np.nan*np.ones_like(MVf[:,190:300,-65:-45])    # mask
 # =======================================================================================
 # ---------------------------------------------------------------------------------------
 # - BSF Streamfunction (in Sv)
+'''
 BSF_mgrd, MVzint = utils_BSF.calc_BSF_mgrd(MV, dump_MVzint=True)
+'''
 
 # ---------------------------------------------------------------------------------------
 # - MOC Streamfunction (in depth space) (in Sv)

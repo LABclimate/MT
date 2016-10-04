@@ -34,10 +34,10 @@ from IPython.core.debugger import Tracer; debug_here = Tracer()
 CESMversion = 4
 path_grd = paths.get_path2vars('mgrd', CESMversion, mkdir=True) #? mgrd
 path_corr = paths.get_path2vars('corr', CESMversion, mkdir=True)
-path_figs = paths.get_path2figs('corr', CESMversion, mkdir=True)
+path_figs = paths.get_path2figs('corr', mkdir=True)
 
 fpath = paths.get_path2data('lm_1deg', 'anndat')
-fpath = '../data
+#fpath = '../data'
 fnames = ['b40.lm850-1850.1deg.001.pop.h.{:04d}.ann.4.cdf'.format(i) for i in np.arange(850, 1500)]
 
 # #############################################################################
@@ -56,6 +56,7 @@ except:
     BSF_mod = []
     MOC_mod = []
     for t in np.arange(len(fnames)):
+        print t
         try:
             # load netcdf file
             ncdat = xr.open_dataset(fpath+fnames[t], decode_times=False)
@@ -67,6 +68,7 @@ except:
     # save to file
     utils_misc.savevar(BSF_mod, path_corr+'BSF_mod')
     utils_misc.savevar(MOC_mod, path_corr+'MOC_mod')
+    
 # normalisation of AMOC
 for t in np.arange(len(MOC_mod)):
     MOC_mod[t,:,:] = MOC_mod[t,:,:] - MOC_mod[t,:,-1]
