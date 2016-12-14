@@ -29,6 +29,16 @@
 #                                         added shiftCMap()
 #################################
 
+
+
+'''
+DEAD CODE which very likely will be used again
+
+    lns = p2+p3; labs = [l.get_label() for l in lns];   # for legend
+    ax[1].legend(lns, labs, loc='topright')               # legend
+
+'''
+
 import numpy as np
 import matplotlib as ml
 import matplotlib.pyplot as plt
@@ -39,17 +49,83 @@ from matplotlib.backends.backend_pdf import PdfPages
 import CESM_utils_mask as utils_mask
 import CESM_utils_plt as utils_plt
 import CESM_utils_conv as utils_conv
+import matplotlib.animation as manimation
 
+plt.ion()   # enable interactive plotting
+
+# =======================================================================================
+# Shortcuts and simple styling functions
+# =======================================================================================
+# figure-producing functions
+def fg(): plt.figure();
+def sps(nr=1, nc=1): fig, ax = plt.subplots(nr,nc); return fig, ax
+def spsinv(nr=1, nc=1): fig, ax = plt.subplots(nr,nc); ax.invert_yaxis(); return fig, ax
+# axes-producing functions
+def sp(num=111): ax = plt.subplot(num); return ax
+def spinv(fg, num=111): 
+    ax = fg.add_subplot(num);
+    try: ax.invert_yaxis();
+    except: 
+        for a in ax: a.invert_yaxis(); 
+    return ax
+# annotation
+def tt(ax, str): ax.set_title(str);
+def xl(ax, str): ax.set_xlabel(str);
+def yl(ax, str): ax.set_ylabel(str);
+# styling
+def cb(p,ax): cb = plt.colorbar(p, ax=ax); return cb
+def tight(): plt.tight_layout()
+def colyax(ax,color): 
+    ax.tick_params(axis='y', colors=color)
+    ax.yaxis.label.set_color(color)
+def invyax(ax): ax.invert_yaxis()
+    
 # =======================================================================================
 #  Styling (general styling for any plot)
 # =======================================================================================
 plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 ml.style.use('bmh')
+ml.rcParams['lines.linewidth'] = 3
+ml.rcParams['axes.labelweight'] = 'bold'    # does not work
 
+
+# =======================================================================================
+#  Movies
+# =======================================================================================
+def movie_setup():
+    try: FFMpegWriter = manimation.writers['avconv']
+    except: FFMpegWriter = manimation.writers['mencoder']    
+    writer = FFMpegWriter(fps=1)
+    return writer
+    
+def movie_newframe(fg, ax, spnum=111, cb='foo'):
+    fg.delaxes(ax); 
+    ax = spinv(fg,111);
+    try: cb.remove();
+    except: pass
+    return ax
+    
 # =======================================================================================
 #  Plotting
 # =======================================================================================
+def plot_topo(ax, lat, HT):
+    ax.fill_between(lat, HT, 6000, color='DarkSlateGrey')  # plot seafloor until depth of 6km
+
+def ptype_lat_z(fg, ax, lat, HT):
+    ''' NOTE: HT needs to be given in meter
+    '''
+    ax.set_xlim(lat[85], 90)
+    ax.set_ylim(6000,0)
+    xl(ax,'Latitude'); yl(ax,'Depth [m]');
+    utils_plt.plot_topo(ax, lat, HT)
+
+def ptype_lon_lat(fg, ax):
+    ''' NOTE: HT needs to be given in meter
+    '''
+    ax.set_xlim(250, 360)
+    ax.set_ylim(-38, 90)
+    xl(ax,'Longitude'); yl(ax,'Latitude');
 
 # wrapper to draw contour(f) or pcolorplot of any lat-depth/density variable
 def plot_MOC(xvar, yvar, var, min = [], max = [], nlevels_col=11, levels_cont=[-10,0,10], plttype='pcolor+contour', to_newfig=True, to_subplot=[0,0,0]):
@@ -103,7 +179,7 @@ def plot_BSF(var, TorUgrid, nlevels=100, mappingtoolbox='basemap', proj='ortho',
     # choose U or T grid
     if TorUgrid == 'U':
         xvar = var.ULONG.values
-	yvar = var.ULAT.values
+        yvar = var.ULAT.values
     elif TorUgrid == 'T':
         xvar = var.TLONG.values
         yvar = var.TLAT.values
@@ -209,3 +285,11 @@ def discrete_cmap(base_cmap=None, N=10):
      color_list = base(np.linspace(0, 1, N))
      cmap_name = base.name + str(N)
      return base.from_list(cmap_name, color_list, N)
+     
+# =======================================================================================
+#  Correlations
+# =======================================================================================
+def add_lag_indicators(ax):
+    xlim = ax.get_xlim(); ylim = ax.get_ylim();
+    ax.text(xlim[0], ylim[1]-.05, 'BSF leading', horizontalalignment='left', verticalalignment='top', weight='heavy'); 
+    ax.text(xlim[1], ylim[1]-.05, 'MOC leading', horizontalalignment='right', verticalalignment='top', weight='heavy'); 

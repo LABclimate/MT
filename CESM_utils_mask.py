@@ -99,6 +99,7 @@ def gen_auxgrd(ncdat, name):
       lat = ncdat.MOC.lat_aux_grid[::4].values  # latitudes
     return(lat)
 
+
 # --------------------------------------------------
 # generate mask_auxgrd_overlay_lat, the mask for grid-overlay
 # --------------------------------------------------
@@ -108,12 +109,13 @@ def gen_mask_auxgrd_overlay_lat(lat_auxgrd, ncdat):
     '''
     print('> generating mask_auxgrd_overlay_lat')
     lat_mgrdT, iter_lat_auxgrd, iter_lat_mgrdT, iter_lon_mgrdT = vars2speedup(lat_auxgrd, ncdat) 	# np-arrays for speed
+    lat_auxgrd = np.array(lat_auxgrd) # for speed
     mask_auxgrd_overlay_lat = np.zeros([len(lat_auxgrd), len(ncdat.nlat), len(ncdat.nlon)],dtype=bool) 	# pre-allocation as False
     for n in iter_lat_auxgrd[:-1]:
       utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd), minbarlen=60)
       for j in iter_lat_mgrdT:
-        for i in iter_lon_mgrdT:
-          if lat_auxgrd[n] <= lat_mgrdT[j,i] < lat_auxgrd[n+1]:
+          good_i = np.where(np.greater_equal(lat_mgrdT[j,:], lat_auxgrd[n]) & np.less(lat_mgrdT[j,:], lat_auxgrd[n+1]))
+          for i in good_i:
             mask_auxgrd_overlay_lat[n,j,i] = True
     utils_misc.ProgBar('done')
 
@@ -132,7 +134,7 @@ def gen_fraction_mask(auxLAT, ncdat):
     '''
     #auxLAT = np.arange(-90,90, .1)
     
-    print('> generating mask_auxgrd_overlay_lat')    
+    print('> generating mask_auxgrd_overlay_lat')
     # -----------------------------------------------------------------
     # - Pre-allocation of mask
     fraction_mask = np.zeros([len(auxLAT)], dtype=object) # second dimension is going to be expanded below if needed
@@ -144,7 +146,7 @@ def gen_fraction_mask(auxLAT, ncdat):
     stats['area'] = np.zeros([len(ncdat.nlat), len(ncdat.nlon), 3])
     stats['area'][:,:,0] = ncdat.TAREA
     # -----------------------------------------------------------------
-    # - LATITUDES and LONGITUES    
+    # - LATITUDES and LONGITUES
     TLAT = np.array(ncdat.TLAT)                 # mgrd
     TLONG = np.array(ncdat.TLONG)               # mgrd
     ULAT = np.array(ncdat.ULAT)                 # mgrd
@@ -416,7 +418,8 @@ def gen_fraction_mask(auxLAT, ncdat):
     for ii in np.arange(len(auxLAT)):
         fraction_mask[ii] = np.delete(fraction_mask[ii], 0,0)
     print('statistics cases: \n{} '.format(stats['cases']))
-    return(fraction_mask, stats)
+    # return(fraction_mask, stats)
+    return(fraction_mask)
 
 # --------------------------------------------------
 # generate iter_maskcombo
@@ -473,11 +476,13 @@ def calc_H_mgrd_xmax(ncdat, TorUgrid):
     return(H_mgrd_xmax)
 
 # ...for auxillary grid
-def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, iter_maskcombo):
+def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid):
     # a few variables to speed up subsequent loops
     iter_lat_auxgrd = np.arange(len(lat_auxgrd))
-    iter_lat_mgrd = np.arange(len(ncdat.nlat))
-
+    overlayboolmask = utils_mask.gen_mask_auxgrd_overlay_lat(lat_auxgrd, ncdat)
+    iter_lat_mgrd = [np.where(np.any(overlayboolmask[n,:,:], axis=1))[0] for n in iter_lat_auxgrd]
+    ATLboolmask = utils_mask.get_ATLbools(ncdat.REGION_MASK)    # boolean mask 
+    mask_ATLiter = utils_mask.get_ATLiter(ATLboolmask)
     # find maximal depth along longitudes
     if TorUgrid == 'T':
       H = ncdat.HT
@@ -489,8 +494,8 @@ def calc_H_auxgrd_xmax(lat_auxgrd, ncdat, TorUgrid, iter_maskcombo):
     H_auxgrd_xmax = np.zeros(len(iter_lat_auxgrd))             # pre-allocation with zeros
     for n in iter_lat_auxgrd:
       utils_misc.ProgBar('step', step=n, nsteps=len(iter_lat_auxgrd))
-      for j in iter_lat_mgrd:
-        for i in iter_maskcombo[n,j]:
+      for j in iter_lat_mgrd[n]:
+        for i in mask_ATLiter[j]:
           H_auxgrd_xmax[n] = np.nanmax([H_auxgrd_xmax[n], H[j,i]])
     utils_misc.ProgBar('done')
 

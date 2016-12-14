@@ -29,7 +29,7 @@ import CESM_utils_time as utils_time
 import CESM_paths as paths
 from IPython.core.debugger import Tracer; debug_here = Tracer()
 
-from UTILS_misc import loadgetsave as LGS
+from UTILS_misc import LGS GS LG
 
 # suppress RuntimeWaring due to All-NaN slices.
 import warnings

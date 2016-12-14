@@ -9,7 +9,9 @@
 # - Count number of negative gradients in RHO or sig2 and find the most negative one.
 #################################
 
-
+# -- tic-toc timing
+t1 = time.time()
+t2 = time.time(); print(t2-t1); t1 = t2;
 
 
 # --- some statistics
@@ -19,6 +21,54 @@
           np.nanmin(foo), np.nanmax(foo)))
           
           
+# =======================================================================================
+# TEST correlation functions
+# =======================================================================================
+''' indeed, they produce the same result.
+    Caveats:    scipy.stats.pearsonr() does not support nans
+                pandas.Series.corr() does not return the p-values
+    The function utils_ana.nanpearsonr(a,b) solves this problem.
+'''
+import CESM_utils_analysis as utils_ana
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.stats import pearsonr
+from numpy.random import rand
+
+a, b = pd.Series(rand(2000)), pd.Series(rand(2000))
+c1 = pearsonr(a,b)[0]
+p1 = pearsonr(a,b)[1]
+c2 = pd.Series.corr(a,b,method='pearson')
+c3 = utils_ana.nanpearsonr(a,b)
+p3 = utils_ana.ttest_pval(len(a), c3)
+cp3 = utils_ana.xpearsonr(a, b, [0], True)
+
+print c1, p1
+print c3, p3
+print cp3[0][0], cp3[1][0]
+
+a[40] = np.nan
+c1nan = pearsonr(a,b)
+c2nan = pd.Series.corr(a,b,method='pearson')
+cp3nan = utils_ana.xpearsonr(a, b, [0], True)
+print cp3nan[0][0], cp3nan[1][0]
+
+
+''' test lag-direction of utils_ana.xpearsonr() with sine and cosine function
+'''
+a = np.arange(40)
+b = np.cos(a/40.*2*np.pi)
+c = np.sin(a/40.*2*np.pi)
+#b = (b-b.mean())/b.std() # does not make any difference in corr
+#c = (c-c.mean())/c.std() # does not make any difference in corr
+lags = np.arange(-20, 21)
+corr = utils_ana.xpearsonr(b,c,lags)
+plt.figure()
+plt.subplot(211); plt.plot(a,b,'.-', a,c,'.-')
+plt.subplot(212); plt.plot(lags,corr, 'o-'); plt.xlabel('lag'); plt.ylabel('correaltion coeficient')
+plt.show()
+
 # =======================================================================================
 # TEST resampling loop
 # =======================================================================================

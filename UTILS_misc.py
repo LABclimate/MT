@@ -13,7 +13,7 @@
 # - savevar()
 # - checkdir()
 # - primefactors()
-# - loadgetsave()
+# - LGS()
 # - getnsave()
 #################################
 # please log your changes below
@@ -27,17 +27,27 @@
 # 31-Mai-2016 - buerki@climate.unibe.ch: inProgBar added auto-calculation of barlength
 #                                        added checkdir()
 # 23-Jun-2016 - buerki@climate.unibe.ch: changed the name of checkdir() to mkdir()
-# 19-Aug-2016 - buerki@climate.unibe.ch: created loadgetsave() and getnsave()
+# 19-Aug-2016 - buerki@climate.unibe.ch: created LGS()
+# 05-Oct-2016 - buerki@climate.unibe.ch: created LG() and GS()
 #################################
 
 import numpy as np
 import sys
+import xarray as xr
 import pickle
 import os
 import UTILS_misc as utils_misc
 
+# --- dump 3dim matrix
+def getmat():
+    mat = np.array([[[1,1,1],[2,2,2],[3,3,3],[4,4,4]],[[5,5,5],[6,6,6],[7,7,7],[8,8,8]]])
+    mat[:,:,1] *= 10
+    mat[:,:,2] *= 100
+    return mat
+    
+    
 # --- Progress Bars ---
-def ProgBar(stage, step=99, nsteps=99,  maxlen = 60, forceinit=False, minbarlen=1):
+def ProgBar(stage, step=99, nsteps=99,  maxlen = 60, forceinit=False, minbarlen=20):
     '''
     Comments:
       > improve forceinit behaviour, such that not limited to step==1.
@@ -65,6 +75,12 @@ def ProgBar(stage, step=99, nsteps=99,  maxlen = 60, forceinit=False, minbarlen=
     elif stage=='done':
         print('\b]  Done!')
 
+def Counter(step, nsteps, stepname='Step', mod=1):
+    if not np.mod(step, mod):
+        print('\r{} {} / {}'.format(stepname, step, nsteps)),
+        sys.stdout.flush()
+
+    
 '''
 # code for testing
 import time
@@ -82,7 +98,15 @@ def loadvar(path_to_var, str_varname='__', verbose=True):
       var = pickle.load(f)
     if verbose: print(' > success!')
     return(var)
-
+    
+# --- load variable using xarray
+def loadxvar(path_to_var, str_varname='__', verbose=True):
+    if verbose: print(' > loading {}\n    from {}.nc'.format(str_varname, path_to_var))
+    if str_varname == None: xvar = xr.open_dataset(path_to_var+'.nc', decode_times=False)
+    else:                   xvar = xr.open_dataset(path_to_var+'.nc', decode_times=False)[str_varname]
+    if verbose: print(' > success!')
+    return(xvar)
+    
 # --- save variable using pickle
 def savevar(var, path_to_var, str_varname='__', verbose=True):
     if verbose: print(' > saving {} to file...'.format(str_varname))
@@ -91,37 +115,42 @@ def savevar(var, path_to_var, str_varname='__', verbose=True):
       pickle.dump(var, f)
     if verbose: print(' > success!')
 
-# --- try to load, else create and save
-def loadgetsave(fun_to_get_var, path_to_var, str_varname='__', verbose=True, noload=False):
+# --- save variable using xarray
+def savexvar(xvar, path_to_var, str_varname='__', verbose=True):
+    if verbose: print(' > saving {} to file...'.format(str_varname))
+    var2save = xr.Dataset({str_varname:xvar}).to_netcdf(path_to_var+'.nc')
+    if verbose: print(' > success!')
+
+# --- try to load, else get and save variable
+def LGS(fun_to_get_var, path_to_var, str_varname='__', verbose=True, noload=False, nosave=False, format='nc'):
     ''' 
-    Usage:
-     > import utils_misc.loadgetsave as LGS
-     > LGS(lambda: fun_to_get_var(args), path_to_var)
+    Usage:     > LGS(lambda: fun_to_get_var(args), path_to_var)
     '''
     try:
         if noload: raise ValueError()
         if verbose: print(' > trying to load {}\n    from {}...'.format(str_varname, path_to_var))
-        var = utils_misc.loadvar(path_to_var, verbose=False)
+        if format=='nc':        var = utils_misc.loadxvar(path_to_var, str_varname, verbose=False)
+        elif format=='pickle':  var = utils_misc.loadvar(path_to_var, verbose=False)
         if verbose: print(' > success!\n')
     except:
         if noload & verbose: print(' > no load (note that an eventually stored variable will be overwritten)\n > calculating {}...'.format(str_varname))
         elif verbose: print(' > failed to load!\n > calculating {}...'.format(str_varname))
-        var = fun_to_get_var()
+        try: var = fun_to_get_var()
+        except: var = fun_to_get_var # as "fun" might simply be any variable (which is uncallable and thus produces an error.)
         if verbose: print(' > success!\n > saving {} to file...'.format(str_varname))
-        utils_misc.savevar(var, path_to_var, verbose=False)
+        if format=='nc':        utils_misc.savexvar(var, path_to_var, str_varname, verbose=False)
+        elif format=='pickle':  utils_misc.savevar(var, path_to_var, verbose=False)
         if verbose: print(' > success!\n')
     return(var)
 
-# --- create variable and save
-def getnsave(fun_to_get_var, path_to_var):
-    ''' 
-    Usage: 
-     > getnsave(lambda: fun_to_get_var(args), path_to_var)
-    '''
-    var = fun_to_get_var()
-    utils_misc.savevar(var, path_to_var)
-    return(var)
-    
+# get and save variable (LGS with noload=True)
+def GS(fun_to_get_var, path_to_var, str_varname, verbose=True):
+    LGS(fun_to_get_var, path_to_var, str_varname, verbose, noload=True)
+
+# try to load, else get variable (LGS with nosave=True)
+def LG(fun_to_get_var, path_to_var, str_varname, verbose=True):
+    LGS(fun_to_get_var, path_to_var, str_varname, verbose, nosave=True)
+
 # --- add directory if unexistant
 
 def mkdir(dirname):

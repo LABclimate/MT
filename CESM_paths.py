@@ -95,7 +95,8 @@ def get_path2vars(vartype, CESMversion, mkdir=False):
     # return dirname and create directory
     # -----------------------------------
     if mkdir == True:
-        utils_misc.mkdir(dirname)
+        try:    utils_misc.mkdir(dirname)
+        except: utils_misc.mkdir(vars_root); utils_misc.mkdir(dirname)
     return(dirname)
     
 # ---------------------------------------------------------------------------------------
@@ -106,10 +107,10 @@ def get_path2figs(vartype, mkdir=False):
 
     # dump miscellenian test figures here
     if vartype == 'misc':
-        dirname = vars_root+'figs_misc/'
+        dirname = figs_root+'figs_misc/'
     # correlation indices etc...
     elif vartype == 'corr':
-        dirname = vars_root+'figs_corr/'
+        dirname = figs_root+'figs_corr/'
     # Raise error for invalid key
     else: 
         sys.exit('Invalid key for path2vars')
@@ -119,6 +120,7 @@ def get_path2figs(vartype, mkdir=False):
     # return dirname and create directory
     # -----------------------------------
     if mkdir == True:
-        utils_misc.mkdir(dirname)
+        try:    utils_misc.mkdir(dirname)
+        except: utils_misc.mkdir(figs_root); utils_misc.mkdir(dirname)
     return(dirname)
     

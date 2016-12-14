@@ -45,8 +45,8 @@ def exp_ji_to_kji(ji_array, len_k):
 # =======================================================================================
 # - roll np-ji-array along longitude such that Atlantic is in one piece
 # =======================================================================================
-def rollATL(varin):
-    return(np.roll(varin, 54, axis=1))
+def rollATL(varin, axis=1):
+    return(np.roll(varin, 54, axis=axis))
 
 
 # =======================================================================================
@@ -54,10 +54,16 @@ def rollATL(varin):
 # =======================================================================================
 def add_cyclic(varin,dim='nlon'):
     '''Add a cyclic point to CESM data. Preserve datatype: xarray'''
+    dimdict = {}
+    dimdict[dim] = 0
     if dim == 'nlon':
         return(xr.concat([varin, varin.isel(nlon=0)], dim='nlon'))
     elif dim == 'nlat':
-	return(xr.concat([varin, varin.isel(nlat=0)], dim='nlat'))
+        return(xr.concat([varin, varin.isel(nlat=0)], dim='nlat'))
+    elif dim == 'dim_0':
+        return(xr.concat([varin, varin.isel(dim_0=0)], dim='dim_0'))
+    elif dim == 'dim_1':
+        return(xr.concat([varin, varin.isel(dim_1=0)], dim='dim_1'))
 
 # =======================================================================================
 # - sinusoidal projection of data on auxiliary grid
@@ -65,7 +71,6 @@ def add_cyclic(varin,dim='nlon'):
 def project_on_auxgrd(varin, angle):
     ''' angle is measured from positive x-coord on auxgrd to positive x-coord on ogrd. '''
     return(varin*np.cos(angle*np.pi/180))
-
 
 
 
@@ -109,7 +114,7 @@ def resample_colwise(odat, ogrd, ngrd, method, fill_value=np.nan, mask='none', m
         len_j = 1              # set to one, such that j-loop is executed only once.
         len_i = 1              # set to one, such that i-loop is executed only once.
 
-    # expand shape ngrd, ogrd and odat to 3 dimensions 
+    # expand shape ngrd, ogrd and odat to 3 dimensions
     #   note: singleton-dimensions are intended depending on original shape of odat
     def expand_shape(varin):
         if len(varin.shape) == 1:   # 1dim --> 3dim

@@ -10,7 +10,7 @@ import matplotlib as ml
 import CESM_utils_plt as utils_plt
 
 plt.ion() # enable interactive mode
-path_fig = '../figures/{}/'.format(str_db)
+path_fig = '../figures/{}/'.format(dir_DB)
 utils_misc.mkdir(dir_dens)
 
 # colorbar scaling
@@ -23,9 +23,8 @@ levels_cont = np.linspace(-80, 80, 9)
 print('levels: ' +str(levels_cont))
 
  #mutation = 'deepest10nan'MVxint_mgrd     = np.nansum(MV, axis=2)
-'''
-mutation = 'noGulfMex3'
-'''
+mutation = 'none' #'noGulfMex3'
+
 # Choice of data/method
 method = 'B'
 dMOCm = dMOC_mgrd_V_B
@@ -36,13 +35,15 @@ dMOCm = dMOC_mgrd_V_0
 dMOCaux = dMOC_auxgrd_V_0
 
 # x-axes
+lat_mgrd = ncdat.TLAT.isel(nlon=0)          # mean of LAT for each j #! very inappropriate
 ax_long = np.arange(len(lat_mgrd)) # lat_mgrd
+
 # y-axes
 ax_vol = ax_vol_glob
 ticks_vol = ticks_vol_glob
 
 
-# dMOC_mgrid_V (in Sv)
+# dMOC_mgrd_V (in Sv)
 # --stretch---------------------------------------
 fig, ax = utils_plt.plot_MOC(ax_long, ax_vol, dMOCm, min, max, nlevels_col, levels_cont, plttype='pcolor+contour', to_subplot=[2,2,1])
 #plt.xlim([-36,73])
@@ -51,10 +52,11 @@ plt.xlim([81,383])
 plt.yticks(ticks_vol)
 plt.gca().set_yticklabels(ticks_dens_rd)
 # --linear----------------------------------------
-fig, ax = utils_plt.plot_MOC(ax_long, dbc, dMOCm, min, max, nlevels_col, levels_cont, plttype='pcolor+contour', to_newfig=False, to_subplot=[2,2,2])
+fig, ax = utils_plt.plot_MOC(ax_long, DBc, dMOCm, min, max, nlevels_col, levels_cont, plttype='pcolor+contour', to_newfig=False, to_subplot=[2,2,2])
 plt.title('dMOC mgrd (linear)')
 plt.xlim([81,383])
 plt.ylim([38,30])
+
 # dMOCaux (in Sv)
 # --stretch---------------------------------------
 fig, ax = utils_plt.plot_MOC(lat_auxgrd, ax_vol, dMOCaux, min, max, nlevels_col, levels_cont, plttype='pcolor+contour', to_newfig=False, to_subplot=[2,2,3])
@@ -63,7 +65,7 @@ plt.xlim([-36,90])
 plt.yticks(ticks_vol)
 plt.gca().set_yticklabels(ticks_dens_rd)
 # --linear----------------------------------------
-fig, ax = utils_plt.plot_MOC(lat_auxgrd, dbc, dMOCaux, min, max, nlevels_col, levels_cont, plttype='pcolor+contour', to_newfig=False, to_subplot=[2,2,4])
+fig, ax = utils_plt.plot_MOC(lat_auxgrd, DBc, dMOCaux, min, max, nlevels_col, levels_cont, plttype='pcolor+contour', to_newfig=False, to_subplot=[2,2,4])
 plt.title('dMOC auxgrd (linear)')
 plt.xlim([-36,90])
 plt.ylim([38,30])
